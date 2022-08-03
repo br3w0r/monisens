@@ -10,10 +10,10 @@ pub enum ValidationError {
     UnsupportedChars
 }
 
-pub fn validate_word(s: &str) -> Option<ValidationError> {
+pub fn validate_word(s: &str) -> Result<(), ValidationError> {
     if RE_SINGLE_WORD.is_match(s) {
-        return None;
+        return Ok(());
     }
 
-    Some(ValidationError::UnsupportedChars)
+    Err(ValidationError::UnsupportedChars)
 }

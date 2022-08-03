@@ -17,7 +17,7 @@ async fn main() -> Result<(), Error> {
 
     println!("connected to a pool");
 
-    let table = create_test_table("test_parse_table3".to_string());
+    let table = create_test_table("test_parse_table2".to_string());
 
     let res = sqlx::query(&table.parse().unwrap())
         .execute(&pool)
@@ -31,11 +31,13 @@ async fn main() -> Result<(), Error> {
 fn create_test_table(name: String) -> Table {
     let mut id_field = Field::new(1, "id".to_string(), table::FieldType::Int64).unwrap();
     id_field.add_opt(FieldOption::PrimaryKey).unwrap();
+    id_field.add_opt(FieldOption::Unique).unwrap();
     id_field.add_opt(FieldOption::NotNull).unwrap();
     id_field.add_opt(FieldOption::AutoIncrement).unwrap();
 
     let mut name_field = Field::new(2, "name".to_string(), table::FieldType::Text).unwrap();
     name_field.add_opt(FieldOption::NotNull).unwrap();
+    name_field.add_opt(FieldOption::AutoIncrement).unwrap();
 
     let mut table = Table::new(name).unwrap();
     table.add_field(id_field).unwrap();

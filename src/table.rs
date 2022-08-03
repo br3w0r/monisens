@@ -1,3 +1,4 @@
+mod test;
 mod error;
 mod field;
 mod index;
@@ -16,7 +17,7 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: String) -> Result<Self, TableError> {
-        if let Some(err) = validate_word(&name) {
+        if let Err(err) = validate_word(&name) {
             return Err(TableError::Validation(err));
         }
 
