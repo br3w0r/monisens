@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  database:
+    image: 'postgres:14'
+
+    volumes:
+      - data:/var/lib/postgresql/data/
+
+    ports:
+      - 5433:5432
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pgpass
+      POSTGRES_DB: monisens
+
+    command: ["postgres", "-c", "log_statement=all"]
+
+volumes:
+  data:
