@@ -3,6 +3,8 @@ mod tool;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Error;
+use std::error::Error as stdError;
+use std::any::Any;
 
 use table::{Field, FieldOption, Table};
 
@@ -37,7 +39,6 @@ fn create_test_table(name: String) -> Table {
 
     let mut name_field = Field::new(2, "name".to_string(), table::FieldType::Text).unwrap();
     name_field.add_opt(FieldOption::NotNull).unwrap();
-    name_field.add_opt(FieldOption::AutoIncrement).unwrap();
 
     let mut table = Table::new(name).unwrap();
     table.add_field(id_field).unwrap();
@@ -46,23 +47,28 @@ fn create_test_table(name: String) -> Table {
     table
 }
 
-fn error_parser(err: &Error) -> Option<String> {
-    match err {
-        Error::Database(db_err) => {
-            let code: String = match db_err.code() {
-                Some(c) => c.into_owned(),
-                _ => String::from("unknown"),
-            };
-
-            Some(format!(
-                "db error occured: code: '{}'; message: {}",
-                code,
-                db_err.message()
-            ))
+fn error_parser<T: Any>(err: T) -> Option<String> {
+    let of_any = &err as &dyn Any;
+    if let Some(sqlx_err) = of_any.downcast_ref::<Error>() {
+        match sqlx_err {
+            Error::Database(db_err) => {
+                let code: String = match db_err.code() {
+                    Some(c) => c.into_owned(),
+                    _ => String::from("unknown"),
+                };
+    
+                Some(format!(
+                    "db error occured: code: '{}'; message: {}",
+                    code,
+                    db_err.message()
+                ))
+            }
+    
+            Error::RowNotFound => Some(format!("entry was not found")),
+    
+            _ => None,
         }
-
-        Error::RowNotFound => Some(format!("entry was not found")),
-
-        _ => None,
+    } else {
+        None
     }
 }

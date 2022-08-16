@@ -73,7 +73,7 @@ impl Table {
                     s.push_str("\n\t");
                     s.push_str(&field_str)
                 }
-                Err(err) => return Err(TableError::Field((field.name().to_owned(), err))),
+                Err(err) => return Err(TableError::Field(field.name().to_owned(), err)),
             }
 
             if i != self.fields.len() - 1 {
