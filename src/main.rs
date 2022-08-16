@@ -19,7 +19,7 @@ async fn main() -> Result<(), Error> {
 
     println!("connected to a pool");
 
-    let table = create_test_table("test_parse_table2".to_string());
+    let table = create_test_table("test_par se_table2".to_string());
 
     let res = sqlx::query(&table.parse().unwrap())
         .execute(&pool)

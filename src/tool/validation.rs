@@ -1,22 +1,27 @@
-use std::fmt;
-use std::error::Error;
-use regex::Regex;
 use lazy_static::lazy_static;
+use regex::Regex;
+use std::error::Error;
+use std::fmt;
 
 lazy_static! {
     static ref RE_SINGLE_WORD: Regex = Regex::new(r"^[A-Za-z0-9_]+$").unwrap();
 }
 
-#[derive(Debug)]
 pub enum ValidationError {
-    UnsupportedChars
+    UnsupportedChars,
 }
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ValidationError::UnsupportedChars => write!(f, "name contains unsupported chars")
+            ValidationError::UnsupportedChars => write!(f, "name contains unsupported chars"),
         }
+    }
+}
+
+impl fmt::Debug for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (self as &dyn fmt::Display).fmt(f)
     }
 }
 

@@ -22,11 +22,11 @@ impl fmt::Display for TableError {
 
 impl fmt::Debug for TableError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-       write!(f, "{}", self)
+        (self as &dyn fmt::Display).fmt(f)
     }
 }
 
-impl Error for TableError{}
+impl Error for TableError {}
 
 pub enum FieldError {
     DuplicateOption(FieldOption),
@@ -52,8 +52,8 @@ impl fmt::Display for FieldError {
 
 impl fmt::Debug for FieldError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-       write!(f, "{}", self)
+        (self as &dyn fmt::Display).fmt(f)
     }
 }
 
-impl Error for FieldError{}
+impl Error for FieldError {}
