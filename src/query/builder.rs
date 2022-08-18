@@ -47,7 +47,7 @@ impl<A> Builder<A> {
         }
     }
 
-    pub fn extend(&mut self, k: &str, v: Rc<dyn Sqlizer<A>>) -> Result<(), BuilderError> {
+    pub fn push(&mut self, k: &str, v: Rc<dyn Sqlizer<A>>) -> Result<(), BuilderError> {
         if let Some(vt) = self.m.get_mut(k) {
             if let ValType::Vec(ref mut ve) = *vt {
                 ve.push(v);

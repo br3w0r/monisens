@@ -1,9 +1,9 @@
 pub mod builder;
 pub mod error;
 mod expr;
+pub mod integration;
 pub mod sqlizer;
 mod tool;
-pub mod integration;
 
 use builder::Builder;
 pub use expr::*;
@@ -31,21 +31,34 @@ impl<A: 'static> StatementBuilder<A> {
         self
     }
 
-    pub fn columns(&mut self, column: String) -> &mut Self {
-        // TODO: multiple columns
+    pub fn column(&mut self, column: String) -> &mut Self {
         self.b
-            .extend(
+            .push(
                 "columns",
-                Rc::new(Part::<A>::new(PredType::String(column), None)),
+                Rc::new(Part::new(PredType::String(column), None)),
             )
             .expect("failed to extend 'columns' statement");
 
         self
     }
 
+    pub fn columns(&mut self, mut columns: Vec<String>) -> &mut Self {
+        let mut v: Vec<Rc<dyn Sqlizer<A>>> = Vec::with_capacity(columns.len());
+        for i in columns.drain(0..) {
+            self.b
+                .push(
+                    "columns",
+                    Rc::new(Part::<A>::new(PredType::String(i), None)),
+                )
+                .expect("failed to extend 'columns' statement");
+        }
+
+        self
+    }
+
     pub fn whereq(&mut self, sq: Rc<dyn Sqlizer<A>>) -> &mut Self {
         self.b
-            .extend("where", sq)
+            .push("where", sq)
             .expect("failed to extend 'where' statement");
 
         self
