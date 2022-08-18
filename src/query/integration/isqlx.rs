@@ -34,10 +34,20 @@ impl ArgType for &str {
 
 pub type StatementBuilder = query::StatementBuilder<Box<dyn ArgType>>;
 
-pub fn eq<T: ArgType + 'static>(col: String, val: T) -> Rc<dyn Sqlizer<Box<dyn ArgType>>> {
-    let v = Box::new(val);
-    expr::eq(col, v)
+macro_rules! static_arg_expr {
+    ($name:ident) => {
+        pub fn $name<T: ArgType + 'static>(col: String, val: T) -> Rc<dyn Sqlizer<Box<dyn ArgType>>> {
+            let v = Box::new(val);
+            expr::$name(col, v)
+        }
+    };
 }
+
+static_arg_expr!(eq);
+static_arg_expr!(gt);
+static_arg_expr!(gte);
+static_arg_expr!(lt);
+static_arg_expr!(lte);
 
 pub fn query<'a>(
     sql: &'a str,

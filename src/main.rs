@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut b = sq::StatementBuilder::new();
     b.table("test_parse_table".to_string())
         .columns(vec!["id".into(), "name".into()])
-        .whereq(sq::eq("id".to_string(), 2));
+        .whereq(sq::gt("id".to_string(), 1));
 
     let (sql, args) = b.select().sql()?;
 
