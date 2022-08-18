@@ -30,7 +30,7 @@ impl<A: 'static> Sqlizer<A> for SingleExpr<A> {
     }
 }
 
-macro_rules! single_expr {
+macro_rules! single_arg_expr {
     ($name:ident, $sign:literal) => {
         pub fn $name<A: 'static>(col: String, val: A) -> Rc<dyn Sqlizer<A>> {
             SingleExpr::new($sign, col, val)
@@ -38,8 +38,8 @@ macro_rules! single_expr {
     };
 }
 
-single_expr!(eq, "=");
-single_expr!(gt, ">");
-single_expr!(gte, ">=");
-single_expr!(lt, "<");
-single_expr!(lte, "<=");
+single_arg_expr!(eq, "=");
+single_arg_expr!(gt, ">");
+single_arg_expr!(gte, ">=");
+single_arg_expr!(lt, "<");
+single_arg_expr!(lte, "<=");
