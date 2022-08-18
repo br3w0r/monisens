@@ -9,11 +9,11 @@ use std::any::Any;
 use std::error::Error;
 use std::rc::Rc;
 
-pub struct StatementBuilder<'a> {
-    b: Builder<'a>,
+pub struct StatementBuilder {
+    b: Builder,
 }
 
-impl<'a> StatementBuilder<'a> {
+impl StatementBuilder {
     pub fn new() -> Self {
         Self { b: Builder::new() }
     }
@@ -21,7 +21,7 @@ impl<'a> StatementBuilder<'a> {
     pub fn table(&mut self, table: String) -> &mut Self {
         self.b.set(
             "table".to_string(),
-            Part::new(PredType::String(table), None),
+            Rc::new(Part::new(PredType::String(table), None)),
         );
 
         self
@@ -29,12 +29,16 @@ impl<'a> StatementBuilder<'a> {
 
     pub fn columns(&mut self, column: String) -> &mut Self {
         // TODO: multiple columns
-        self.b.extend("columns", Part::new(PredType::String(column), None));
+        self.b.extend(
+            "columns",
+            Rc::new(Part::new(PredType::String(column), None)),
+        ).
+            expect("failed to extend 'columns' statement");
 
         self
     }
 
-    pub fn whereq(&mut self, sq: &'a dyn Sqlizer<'a>) -> &mut Self {
+    pub fn whereq(&mut self, sq: Rc<dyn Sqlizer>) -> &mut Self {
         self.b
             .extend("where", sq)
             .expect("failed to extend 'where' statement");
@@ -42,14 +46,14 @@ impl<'a> StatementBuilder<'a> {
         self
     }
 
-    pub fn select(self) -> SelectBuilder<'a> {
+    pub fn select(self) -> SelectBuilder {
         self
     }
 }
 
-type SelectBuilder<'a> = StatementBuilder<'a>;
+type SelectBuilder = StatementBuilder;
 
-impl<'a> SelectBuilder<'a> {
+impl SelectBuilder {
     fn sql_raw(&self) -> Result<(String, Option<Vec<Rc<dyn Any>>>), Box<dyn Error>> {
         let mut sql = String::new();
         let mut args = Vec::new();
@@ -73,14 +77,14 @@ impl<'a> SelectBuilder<'a> {
     }
 }
 
-impl<'a> Sqlizer<'a> for SelectBuilder<'a> {
+impl Sqlizer for SelectBuilder {
     fn sql(&self) -> Result<(String, Option<Vec<Rc<dyn Any>>>), Box<dyn Error>> {
         self.sql_raw()
     }
 }
 
-fn append_sql<'a>(
-    parts: &Vec<Rc<dyn 'a + Sqlizer<'a>>>,
+fn append_sql(
+    parts: &Vec<Rc<dyn Sqlizer>>,
     s: &mut String,
     sep: &str,
     args: &mut Vec<Rc<dyn Any>>,

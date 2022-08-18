@@ -4,6 +4,7 @@ use std::error::Error;
 #[derive(Debug)]
 pub enum BuilderError {
     NotVec,
+    NotAny,
 }
 
 pub struct PartErr {
