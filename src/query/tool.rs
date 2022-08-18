@@ -1,5 +1,4 @@
 use super::sqlizer::Sqlizer;
-use std::any::Any;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -28,4 +27,25 @@ pub fn append_sql<A: 'static>(
     }
 
     Ok(())
+}
+
+pub fn replace_pos_placeholders(sql: &str, prefix: &str) -> String {
+    let mut s = String::new();
+    let mut from: usize = 0;
+    let mut n: usize = 0;
+
+    for (i, _) in sql.match_indices("?") {
+        n += 1;
+
+        if from < i-1 {
+            s.push_str(&sql[from..i]);
+        }
+
+        s.push_str(prefix);
+        s.push_str(&n.to_string());
+
+        from = i + 1;
+    }
+
+    s
 }

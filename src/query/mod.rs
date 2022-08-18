@@ -83,7 +83,7 @@ impl<A: 'static> SelectBuilder<A> {
             }
         }
 
-        Ok((sql, Some(args)))
+        Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
     }
 }
 
