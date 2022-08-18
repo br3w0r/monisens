@@ -14,23 +14,30 @@ pub trait ArgType: fmt::Debug {
     ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>;
 }
 
-impl ArgType for i32 {
-    fn bind<'q>(
-        &'q self,
-        q: Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>,
-    ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments> {
-        q.bind(self)
-    }
+macro_rules! ref_arg_type {
+    ($ty:ty) => {
+        impl ArgType for $ty {
+            fn bind<'q>(
+                &'q self,
+                q: Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>,
+            ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments> {
+                q.bind(self)
+            }
+        }
+    };
 }
 
-impl ArgType for &str {
-    fn bind<'q>(
-        &'q self,
-        q: Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>,
-    ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments> {
-        q.bind(self)
-    }
-}
+ref_arg_type!(bool);
+
+ref_arg_type!(i16);
+ref_arg_type!(i32);
+ref_arg_type!(i64);
+
+ref_arg_type!(f32);
+ref_arg_type!(f64);
+
+ref_arg_type!(&str);
+ref_arg_type!(String);
 
 pub type StatementBuilder = query::StatementBuilder<Box<dyn ArgType>>;
 
