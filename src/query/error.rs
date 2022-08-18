@@ -1,32 +1,14 @@
 use std::fmt;
-use std::error::Error;
+use thiserror::Error;
 
-#[derive(Debug)]
+use crate::debug_from_display;
+
+#[derive(Error)]
 pub enum BuilderError {
+    #[error("value to get or insert is not of type 'Vec'")]
     NotVec,
+    #[error("value to get or insert is not of type 'dyn Any'")]
     NotAny,
 }
 
-pub struct PartErr {
-    msg: &'static str,
-}
-
-impl PartErr {
-    pub fn new(msg: &'static str) -> Self {
-        Self { msg }
-    }
-}
-
-impl fmt::Display for PartErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.msg.fmt(f)
-    }
-}
-
-impl fmt::Debug for PartErr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.msg.fmt(f)
-    }
-}
-
-impl Error for PartErr {}
+debug_from_display!(BuilderError);

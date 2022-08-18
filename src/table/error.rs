@@ -1,59 +1,28 @@
-use std::error::Error;
 use std::fmt;
+use thiserror::Error;
 
 use super::{FieldOption, FieldType};
+use crate::debug_from_display;
 use crate::tool::validation::ValidationError;
 
+#[derive(Error)]
 pub enum TableError {
+    #[error("failed to validate field '{0}': {1}")]
     Field(String, FieldError),
+    #[error("validation failed: {0}")]
     Validation(ValidationError),
 }
 
-impl fmt::Display for TableError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TableError::Field(field, err) => {
-                write!(f, "failed to validate field '{}': {}", field, err)
-            }
-            TableError::Validation(err) => write!(f, "validation failed: {}", err),
-        }
-    }
-}
+debug_from_display!(TableError);
 
-impl fmt::Debug for TableError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (self as &dyn fmt::Display).fmt(f)
-    }
-}
-
-impl Error for TableError {}
-
+#[derive(Error)]
 pub enum FieldError {
+    #[error("failed to assign a duplicate of option: {0:?}")]
     DuplicateOption(FieldOption),
+    #[error("validation failed: {0}")]
     Validation(ValidationError),
+    #[error("failed to assign invalid option '{0:?}' for field of type '{1:?}'")]
     InvalidTypeOption(FieldType, FieldOption),
 }
 
-impl fmt::Display for FieldError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            FieldError::DuplicateOption(opt) => {
-                write!(f, "failed to assign a duplicate of option: {:?}", opt)
-            }
-            FieldError::Validation(err) => write!(f, "validation failed: {}", err),
-            FieldError::InvalidTypeOption(typ, opt) => write!(
-                f,
-                "failed to assign invalid option '{:?}' for field of type '{:?}'",
-                opt, typ
-            ),
-        }
-    }
-}
-
-impl fmt::Debug for FieldError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (self as &dyn fmt::Display).fmt(f)
-    }
-}
-
-impl Error for FieldError {}
+debug_from_display!(FieldError);
