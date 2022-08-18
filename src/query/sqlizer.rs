@@ -2,29 +2,29 @@ use std::any::Any;
 use std::error::Error;
 use std::rc::Rc;
 
-pub trait Sqlizer {
-    fn sql(&self) -> Result<(String, Option<Vec<Rc<dyn Any>>>), Box<dyn Error>>;
+pub trait Sqlizer<A: 'static> {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>>;
 }
 
 // Implement the trait for all references that already implement the trait
-impl<'a, T: ?Sized + Sqlizer> Sqlizer for &'_ T {
-    fn sql(&self) -> Result<(String, Option<Vec<Rc<dyn Any>>>), Box<dyn Error>> {
-        <T as Sqlizer>::sql(self)
+impl<'a, A: 'static, T: ?Sized + Sqlizer<A>> Sqlizer<A> for &'_ T {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
+        <T as Sqlizer<A>>::sql(self)
     }
 }
 
-pub enum PredType {
+pub enum PredType<A> {
     String(String),
-    Sql(Rc<dyn Sqlizer>),
+    Sql(Rc<dyn Sqlizer<A>>),
 }
 
-pub struct Part {
-    pred: PredType,
-    args: Option<Vec<Rc<dyn Any>>>,
+pub struct Part<A> {
+    pred: PredType<A>,
+    args: Option<Vec<Rc<A>>>,
 }
 
-impl Part {
-    pub fn new(pred: PredType, args: Option<Vec<Rc<dyn Any>>>) -> Self {
+impl<A> Part<A> {
+    pub fn new(pred: PredType<A>, args: Option<Vec<Rc<A>>>) -> Self {
         Self {
             pred: pred,
             args: args,
@@ -32,8 +32,8 @@ impl Part {
     }
 }
 
-impl Sqlizer for Part {
-    fn sql(&self) -> Result<(String, Option<Vec<Rc<dyn Any>>>), Box<dyn Error>> {
+impl<A: 'static> Sqlizer<A> for Part<A> {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
         match &self.pred {
             PredType::String(ref s) => Ok((
                 s.to_owned(),

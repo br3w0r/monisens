@@ -2,47 +2,51 @@ mod query;
 mod table;
 mod tool;
 
-use sqlx::postgres::PgPoolOptions;
-use std::any::Any;
+use sqlx::postgres::{PgPoolOptions};
+use sqlx::{FromRow};
 use std::error::Error;
-use std::fmt;
+use std::rc::Rc;
 
-use query::{sqlizer::Sqlizer, StatementBuilder};
+use query::integration::isqlx as sq;
+use query::{sqlizer::Sqlizer};
 use table::{Field, FieldOption, Table};
+
+#[derive(FromRow, Debug)]
+struct Test {
+    id: i64,
+    name: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // println!("Hello, world!");
+    println!("Hello, world!");
 
-    // let pool = PgPoolOptions::new()
-    //     .max_connections(5)
-    //     .connect("postgres://postgres:pgpass@localhost:5433/monisens")
-    //     .await?;
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect("postgres://postgres:pgpass@localhost:5433/monisens")
+        .await?;
 
-    // println!("connected to a pool");
+    println!("connected to a pool");
 
-    // let table = create_test_table("test_par se_table2".to_string());
+    let mut b = sq::StatementBuilder::new();
+    b.table("test_parse_table".to_string())
+        .columns("*".to_string())
+        .whereq(sq::eq("id".to_string(), 2));
 
-    // let res = sqlx::query(&table.parse().unwrap()).bind(value)
-    //     .execute(&pool)
-    //     .await?;
+    let (sql, args) = b.select().sql()?;
 
-    // println!("{}", res.rows_affected());
+    let mut q = sq::query(&sql, &args);
+    let mut res = q.fetch_one(&pool).await?;
 
-    // let s = StatementBuilder::new()
-    //     .whereq(eq("name".to_string(), "hello"));
+    let row = Test::from_row(&res);
 
-    let mut b = StatementBuilder::new();
-    b.table("test_table".to_string())
-        .columns("col1".to_string())
-        .columns("col2".to_string())
-        .columns("col3".to_string());
-
-    let (sql, _) = b.select().sql()?;
-
-    println!("{}", sql);
+    println!("{:?}", row);
 
     Ok(())
+}
+
+fn prt(s: &str) {
+    print!("{}", s);
 }
 
 fn create_test_table(name: String) -> Table {
