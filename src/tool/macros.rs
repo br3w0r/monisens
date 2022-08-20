@@ -6,5 +6,5 @@ macro_rules! debug_from_display {
                 (self as &dyn fmt::Display).fmt(f)
             }
         }
-    }
+    };
 }

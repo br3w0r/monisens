@@ -1,7 +1,7 @@
+use crate::debug_from_display;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::fmt;
-use crate::debug_from_display;
 use thiserror::Error;
 
 lazy_static! {

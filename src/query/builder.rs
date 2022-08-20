@@ -37,9 +37,7 @@ impl<A> Builder<A> {
     pub fn get_vec(&self, k: &str) -> Option<Vec<Rc<dyn Sqlizer<A>>>> {
         if let Some(v) = self.m.get(k) {
             match v {
-                ValType::Vec(v) => {
-                    Some(v.iter().map(|x| Rc::clone(x)).collect())
-                }
+                ValType::Vec(v) => Some(v.iter().map(|x| Rc::clone(x)).collect()),
                 _ => None,
             }
         } else {

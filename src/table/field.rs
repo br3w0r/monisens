@@ -1,7 +1,7 @@
 use crate::tool::validation::validate_word;
 use std::collections::HashSet;
 
-use super::error::{FieldError};
+use super::error::FieldError;
 
 pub struct Field {
     idx: u8,
@@ -125,7 +125,7 @@ impl FieldOption {
                 FieldType::Int32 => Ok(()),
                 FieldType::Int64 => Ok(()),
                 _ => Err(FieldError::InvalidTypeOption(typ.clone(), self.clone())),
-            }
+            };
         }
 
         Ok(())

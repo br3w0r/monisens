@@ -1,7 +1,7 @@
-mod test;
 mod error;
 mod field;
 mod index;
+mod test;
 
 use crate::tool::validation::validate_word;
 
