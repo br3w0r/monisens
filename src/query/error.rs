@@ -38,3 +38,11 @@ pub enum ValuesError {
 }
 
 debug_from_display!(ValuesError);
+
+#[derive(Error)]
+pub enum DeleteError {
+    #[error("delete statements must specify a table")]
+    NoTable,
+}
+
+debug_from_display!(DeleteError);

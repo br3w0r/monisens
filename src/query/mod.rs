@@ -11,7 +11,7 @@ use sqlizer::{Part, PredType, Sqlizer, Values};
 use std::error::Error;
 use std::rc::Rc;
 
-use self::error::{InsertError, SelectError};
+use self::error::{DeleteError, InsertError, SelectError};
 
 pub struct StatementBuilder<A> {
     b: Builder<A>,
@@ -78,6 +78,10 @@ impl<A: 'static> StatementBuilder<A> {
     pub fn insert(self) -> InsertBuilder<A> {
         InsertBuilder(self)
     }
+
+    pub fn delete(self) -> DeleteBuilder<A> {
+        DeleteBuilder(self)
+    }
 }
 
 pub struct SelectBuilder<A>(StatementBuilder<A>);
@@ -142,7 +146,7 @@ impl<A: 'static> Sqlizer<A> for InsertBuilder<A> {
         let mut args = Vec::new();
 
         sql.push_str("INSERT INTO ");
-        
+
         {
             let (s, _) = into.sql()?;
             sql.push_str(&s);
@@ -160,6 +164,36 @@ impl<A: 'static> Sqlizer<A> for InsertBuilder<A> {
 
         sql.push_str(" VALUES ");
         tool::append_sql(&values, &mut sql, ", ", &mut args)?;
+
+        Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
+    }
+}
+
+pub struct DeleteBuilder<A>(StatementBuilder<A>);
+
+impl<A: 'static> Sqlizer<A> for DeleteBuilder<A> {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
+        let into = match self.0.b.get("table") {
+            Some(v) => Ok(v),
+            None => Err(DeleteError::NoTable),
+        }?;
+
+        let mut sql = String::new();
+        let mut args = Vec::new();
+
+        sql.push_str("DELETE FROM ");
+
+        {
+            let (s, _) = into.sql()?;
+            sql.push_str(&s);
+        }
+
+        if let Some(wher) = self.0.b.get_vec("where") {
+            if wher.len() > 0 {
+                sql.push_str(" WHERE ");
+                tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
+            }
+        }
 
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
     }

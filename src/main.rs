@@ -42,14 +42,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // println!("{:?}", rows);
 
+    // let mut b = sq::StatementBuilder::new();
+    // b.table("test_parse_table".into());
+
+    // for (i, v) in vec!["this", "is", "a", "test"].drain(0..).enumerate() {
+    //     b.set(vec![((i as i32) + 1).into(), v.into()]);
+    // }
+
+    // let (sql, args) = b.insert().sql()?;
+    // let q = sq::query(&sql, &args);
+
+    // let res = q.execute(&pool).await?;
+
+    // println!("{}", res.rows_affected());
+
     let mut b = sq::StatementBuilder::new();
-    b.table("test_parse_table".into());
+    b.table("test_parse_table".into())
+        .whereq(sq::neq("id".into(), 2));
 
-    for (i, v) in vec!["this", "is", "a", "test"].drain(0..).enumerate() {
-        b.set(vec![((i as i32) + 1).into(), v.into()]);
-    }
-
-    let (sql, args) = b.insert().sql()?;
+    let (sql, args) = b.delete().sql()?;
     let q = sq::query(&sql, &args);
 
     let res = q.execute(&pool).await?;

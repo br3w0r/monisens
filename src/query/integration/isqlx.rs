@@ -75,6 +75,7 @@ macro_rules! static_arg_expr {
 }
 
 static_arg_expr!(eq);
+static_arg_expr!(neq);
 static_arg_expr!(gt);
 static_arg_expr!(gte);
 static_arg_expr!(lt);

@@ -39,6 +39,7 @@ macro_rules! single_arg_expr {
 }
 
 single_arg_expr!(eq, "=");
+single_arg_expr!(neq, "<>");
 single_arg_expr!(gt, ">");
 single_arg_expr!(gte, ">=");
 single_arg_expr!(lt, "<");
