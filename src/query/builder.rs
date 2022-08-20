@@ -6,7 +6,6 @@ use std::rc::Rc;
 enum ValType<A> {
     Any(Rc<dyn Sqlizer<A>>),
     Vec(Vec<Rc<dyn Sqlizer<A>>>),
-    ArgVec(Vec<Rc<A>>),
 }
 
 pub struct Builder<A> {

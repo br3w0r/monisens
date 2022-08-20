@@ -85,7 +85,7 @@ pub fn query<'a>(
     sql: &'a str,
     args: &'a Option<Vec<Rc<GenericArg>>>,
 ) -> Query<'a, Postgres, <Postgres as HasArguments<'a>>::Arguments> {
-    let mut q = ::sqlx::query(&sql);
+    let mut q = sqlx::query(&sql);
 
     if let Some(args) = args {
         for i in args.iter() {
