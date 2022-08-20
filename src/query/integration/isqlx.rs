@@ -39,11 +39,35 @@ ref_arg_type!(f64);
 ref_arg_type!(&str);
 ref_arg_type!(String);
 
-pub type StatementBuilder = query::StatementBuilder<Box<dyn ArgType>>;
+pub type GenericArg = Box<dyn ArgType + 'static>;
+
+macro_rules! arg_from_ty {
+    ($ty:ty) => {
+        impl From<$ty> for GenericArg {
+            fn from(v: $ty) -> Self {
+                Box::new(v)
+            }
+        }
+    };
+}
+
+arg_from_ty!(bool);
+
+arg_from_ty!(i16);
+arg_from_ty!(i32);
+arg_from_ty!(i64);
+
+arg_from_ty!(f32);
+arg_from_ty!(f64);
+
+arg_from_ty!(&'static str);
+arg_from_ty!(String);
+
+pub type StatementBuilder = query::StatementBuilder<GenericArg>;
 
 macro_rules! static_arg_expr {
     ($name:ident) => {
-        pub fn $name<T: ArgType + 'static>(col: String, val: T) -> Rc<dyn Sqlizer<Box<dyn ArgType>>> {
+        pub fn $name<T: ArgType + 'static>(col: String, val: T) -> Rc<dyn Sqlizer<GenericArg>> {
             let v = Box::new(val);
             expr::$name(col, v)
         }
@@ -58,7 +82,7 @@ static_arg_expr!(lte);
 
 pub fn query<'a>(
     sql: &'a str,
-    args: &'a Option<Vec<Rc<Box<dyn ArgType>>>>,
+    args: &'a Option<Vec<Rc<GenericArg>>>,
 ) -> Query<'a, Postgres, <Postgres as HasArguments<'a>>::Arguments> {
     let mut q = ::sqlx::query(&sql);
 

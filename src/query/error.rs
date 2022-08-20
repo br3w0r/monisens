@@ -5,10 +5,36 @@ use crate::debug_from_display;
 
 #[derive(Error)]
 pub enum BuilderError {
-    #[error("value to get or insert is not of type 'Vec'")]
+    #[error("value saved for the key is not of type 'Vec'")]
     NotVec,
-    #[error("value to get or insert is not of type 'dyn Any'")]
+    #[error("value saved for the key is not of type 'dyn Any'")]
     NotAny,
 }
 
 debug_from_display!(BuilderError);
+
+#[derive(Error)]
+pub enum SelectError {
+    #[error("select statements must have at least one result column")]
+    NoColumns,
+}
+
+debug_from_display!(SelectError);
+
+#[derive(Error)]
+pub enum InsertError {
+    #[error("insert statements must specify a table")]
+    NoTable,
+    #[error("insert statements must have at least one set of values")]
+    NoValues,
+}
+
+debug_from_display!(InsertError);
+
+#[derive(Error)]
+pub enum ValuesError {
+    #[error("no values where given")]
+    NoValues,
+}
+
+debug_from_display!(ValuesError);

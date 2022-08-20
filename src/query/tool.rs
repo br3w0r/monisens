@@ -37,7 +37,7 @@ pub fn replace_pos_placeholders(sql: &str, prefix: &str) -> String {
     for (i, _) in sql.match_indices("?") {
         n += 1;
 
-        if from < i-1 {
+        if from < i {
             s.push_str(&sql[from..i]);
         }
 
@@ -45,6 +45,28 @@ pub fn replace_pos_placeholders(sql: &str, prefix: &str) -> String {
         s.push_str(&n.to_string());
 
         from = i + 1;
+    }
+
+    if from < sql.len() {
+        s.push_str(&sql[from..]);
+    }
+
+    s
+}
+
+pub fn placeholders(n: usize) -> String {
+    if n == 0 {
+        return "".into();
+    }
+
+    let mut s = String::with_capacity(n * 3 - 2);
+
+    for i in 0..n {
+        if i == n - 1 {
+            s.push('?');
+        } else {
+            s.push_str("?, ");
+        }
     }
 
     s
