@@ -11,3 +11,5 @@ tokio = { version = "1", features = ["full"] }
 regex = "1"
 lazy_static = "1"
 thiserror = "1"
+libc = "0.2.132"
+libloading = "0.7.3"

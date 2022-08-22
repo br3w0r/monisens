@@ -1,12 +1,14 @@
-#![forbid(unsafe_code)]
+mod module;
 mod query;
 mod table;
 mod tool;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
+use std::env;
 use std::error::Error;
 
+use module::Module;
 use query::integration::isqlx as sq;
 use query::sqlizer::Sqlizer;
 use table::{Field, FieldOption, Table};
@@ -22,12 +24,12 @@ struct Test {
 async fn main() -> Result<(), Box<dyn Error>> {
     println!("Hello, world!");
 
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect("postgres://postgres:pgpass@localhost:5433/monisens")
-        .await?;
+    // let pool = PgPoolOptions::new()
+    //     .max_connections(5)
+    //     .connect("postgres://postgres:pgpass@localhost:5433/monisens")
+    //     .await?;
 
-    println!("connected to a pool");
+    // println!("connected to a pool");
 
     // let mut b = sq::StatementBuilder::new();
     // b.table("test_parse_table".to_string())
@@ -56,16 +58,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // println!("{}", res.rows_affected());
 
-    let mut b = sq::StatementBuilder::new();
-    b.table("test_parse_table".into())
-        .whereq(sq::neq("id".into(), 2));
+    // let mut b = sq::StatementBuilder::new();
+    // b.table("test_parse_table".into())
+    //     .whereq(sq::neq("id".into(), 2));
 
-    let (sql, args) = b.delete().sql()?;
-    let q = sq::query(&sql, &args);
+    // let (sql, args) = b.delete().sql()?;
+    // let q = sq::query(&sql, &args);
 
-    let res = q.execute(&pool).await?;
+    // let res = q.execute(&pool).await?;
 
-    println!("{}", res.rows_affected());
+    // println!("{}", res.rows_affected());
+
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        panic!("args.len() < 2");
+    }
+
+    let mut m = Module::new(&args[1])?;
+    let conf = m.obtain_device_conf()?;
+
+    println!("{:?}", conf);
 
     Ok(())
 }
