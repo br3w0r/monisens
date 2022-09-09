@@ -7,8 +7,6 @@ use std::error::Error;
 use bindings::*;
 use error::ModuleError;
 
-const VERSION: u8 = 1;
-
 pub struct Module {
     #[allow(dead_code)]
     lib: libloading::Library,

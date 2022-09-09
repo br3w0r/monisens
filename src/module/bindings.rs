@@ -4,7 +4,7 @@ use libc::{c_char, c_void};
 use libloading::{self, Symbol};
 use std::ffi::CStr;
 
-const VERSION: u8 = 1;
+pub const VERSION: u8 = 1;
 
 pub type ModVersionFn = extern "C" fn() -> u8;
 
