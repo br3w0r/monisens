@@ -34,8 +34,8 @@ impl Drop for Module {
 
 impl Module {
     pub fn new(path: &str) -> Result<Module, Box<dyn Error>> {
+        // TODO: unsafe {} where it's really unsafe
         unsafe {
-            // TODO: unsafe {} where it's really unsafe
             let lib = libloading::Library::new(path)?;
 
             // Check module version
@@ -50,10 +50,10 @@ impl Module {
             }
 
             let funcs_fn: Symbol<bg::functions_fn> = lib.get(b"functions")?;
-            let funcs = Module::functions(funcs_fn)?;
+            let funcs = funcs_fn.unwrap()();
 
             let mut handler = Handle::new();
-            Module::init(&funcs, &mut handler)?;
+            funcs.init.unwrap()(handler.handler_raw());
 
             if handler.is_null() {
                 return Err(ModuleError::InvalidPointer("handle.0").into());
@@ -67,56 +67,29 @@ impl Module {
         }
     }
 
-    fn init(funcs: &bg::Functions, handler: &mut Handle) -> Result<(), Box<dyn Error>> {
-        if let Some(f) = funcs.init {
-            unsafe { Ok(f(handler.handler_raw())) }
-        } else {
-            Err(ModuleError::InvalidPointer("init").into())
-        }
-    }
-
-    pub fn obtain_device_conf(&mut self) -> DeficeConfRec {
+    pub fn obtain_device_info(&mut self) -> DeficeConfRec {
         let mut conf_rec: DeficeConfRec = Ok(Vec::new());
-        if let Some(f) = self.funcs.obtain_device_info {
-            unsafe {
-                f(
-                    &mut self.handler as *mut Handle as *mut c_void,
-                    &mut conf_rec as *mut DeficeConfRec as *mut c_void,
-                    Some(device_info_callback),
-                )
-            };
+        unsafe {
+            self.funcs.obtain_device_info.unwrap()(
+                &mut self.handler as *mut Handle as *mut c_void,
+                &mut conf_rec as *mut DeficeConfRec as *mut c_void,
+                Some(device_info_callback),
+            )
+        };
 
-            conf_rec
-        } else {
-            Err(ModuleError::InvalidPointer("obtain_device_conf"))
-        }
+        conf_rec
     }
 
-    pub fn connect_device(&mut self, conf: &mut DeviceConnectConf) -> Result<(), Box<dyn Error>> {
-        if let Some(f) = self.funcs.connect_device {
-            let mut c_info = bg::DeviceConnectConf::from(conf);
-            let err = unsafe {
-                f(
-                    &mut self.handler as *mut Handle as *mut c_void,
-                    &mut c_info as _,
-                )
-            };
+    pub fn connect_device(&mut self, conf: &mut DeviceConnectConf) -> Result<(), ComError> {
+        let mut c_info = bg::DeviceConnectConf::from(conf);
+        let err = unsafe {
+            self.funcs.connect_device.unwrap()(
+                &mut self.handler as *mut Handle as *mut c_void,
+                &mut c_info as _,
+            )
+        };
 
-            match convert_com_error(err) {
-                Ok(_) => Ok(()),
-                Err(err) => Err(err.into()),
-            }
-        } else {
-            Err(ModuleError::InvalidPointer("connect_device").into())
-        }
-    }
-
-    fn functions(sym: Symbol<bg::functions_fn>) -> Result<bg::Functions, Box<dyn Error>> {
-        if let Some(f) = sym.lift_option() {
-            unsafe{Ok(f())}
-        } else {
-            return Err(ModuleError::InvalidPointer("functions").into());
-        }
+        convert_com_error(err) 
     }
 }
 

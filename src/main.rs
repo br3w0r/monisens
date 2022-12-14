@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let mut m = Module::new(&args[1])?;
-    let conf = m.obtain_device_conf()?;
+    let conf = m.obtain_device_info()?;
 
     println!("{:?}", conf);
 
