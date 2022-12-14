@@ -1,11 +1,14 @@
 mod bindings;
+mod bindings_gen;
 pub mod error;
 use std::ffi::CString;
 
+use libc::c_void;
 use libloading::{self, Symbol};
 use std::error::Error;
 
 use bindings::*;
+use bindings_gen as bg;
 use error::ModuleError;
 
 use self::error::ComError;
@@ -13,57 +16,107 @@ use self::error::ComError;
 pub struct Module {
     #[allow(dead_code)]
     lib: libloading::Library,
-    handle: Handle,
-    funcs: Functions,
+    handler: Handle,
+    funcs: bg::Functions,
 }
 
 impl Drop for Module {
     fn drop(&mut self) {
-        (self.funcs.destroy)(&self.handle);
+        if let Some(f) = self.funcs.destroy {
+            unsafe {
+                f(&mut self.handler as *mut Handle as *mut c_void);
+            }
+        } else {
+            panic!("No destroy function for module.");
+        }
     }
 }
 
 impl Module {
     pub fn new(path: &str) -> Result<Module, Box<dyn Error>> {
         unsafe {
+            // TODO: unsafe {} where it's really unsafe
             let lib = libloading::Library::new(path)?;
 
             // Check module version
-            let mod_ver_fn: Symbol<ModVersionFn> = lib.get(b"mod_version")?;
-            let ver = mod_ver_fn();
-            if ver != VERSION {
-                return Err(ModuleError::InvalidVersion(ver, VERSION).into());
+            let mod_ver_fn: Symbol<bg::mod_version_fn> = lib.get(b"mod_version")?;
+            if let Some(f) = mod_ver_fn.lift_option() {
+                let ver = f();
+                if ver != VERSION {
+                    return Err(ModuleError::InvalidVersion(ver, VERSION).into());
+                }
+            } else {
+                return Err(ModuleError::InvalidPointer("mod_version").into());
             }
 
-            let funcs_fn: Symbol<FunctionsFn> = lib.get(b"functions")?;
-            let funcs = funcs_fn();
+            let funcs_fn: Symbol<bg::functions_fn> = lib.get(b"functions")?;
+            let funcs = Module::functions(funcs_fn)?;
 
-            let mut handle = Handle::new();
-            let handle_ptr = &mut handle as _;
-            (funcs.init)(handle_ptr);
+            let mut handler = Handle::new();
+            Module::init(&funcs, &mut handler)?;
 
-            if handle.is_null() {
+            if handler.is_null() {
                 return Err(ModuleError::InvalidPointer("handle.0").into());
             }
 
-            Ok(Module { lib, handle, funcs })
+            Ok(Module {
+                lib,
+                handler,
+                funcs,
+            })
+        }
+    }
+
+    fn init(funcs: &bg::Functions, handler: &mut Handle) -> Result<(), Box<dyn Error>> {
+        if let Some(f) = funcs.init {
+            unsafe { Ok(f(handler.handler_raw())) }
+        } else {
+            Err(ModuleError::InvalidPointer("init").into())
         }
     }
 
     pub fn obtain_device_conf(&mut self) -> DeficeConfRec {
         let mut conf_rec: DeficeConfRec = Ok(Vec::new());
-        unsafe {
-            (self.funcs.obtain_device_conf)(&mut self.handle, &mut conf_rec, device_conf_callback)
-        };
+        if let Some(f) = self.funcs.obtain_device_info {
+            unsafe {
+                f(
+                    &mut self.handler as *mut Handle as *mut c_void,
+                    &mut conf_rec as *mut DeficeConfRec as *mut c_void,
+                    Some(device_info_callback),
+                )
+            };
 
-        conf_rec
+            conf_rec
+        } else {
+            Err(ModuleError::InvalidPointer("obtain_device_conf"))
+        }
     }
 
-    pub fn connect_device(&mut self, info: &mut DeviceConnectInfo) -> Result<(), ComError> {
-        let c_info = CDeviceConnectInfo::from(info);
-        let err = (self.funcs.connect_device)(&mut self.handle, &c_info);
+    pub fn connect_device(&mut self, conf: &mut DeviceConnectConf) -> Result<(), Box<dyn Error>> {
+        if let Some(f) = self.funcs.connect_device {
+            let mut c_info = bg::DeviceConnectConf::from(conf);
+            let err = unsafe {
+                f(
+                    &mut self.handler as *mut Handle as *mut c_void,
+                    &mut c_info as _,
+                )
+            };
 
-        convert_com_error(err)
+            match convert_com_error(err) {
+                Ok(_) => Ok(()),
+                Err(err) => Err(err.into()),
+            }
+        } else {
+            Err(ModuleError::InvalidPointer("connect_device").into())
+        }
+    }
+
+    fn functions(sym: Symbol<bg::functions_fn>) -> Result<bg::Functions, Box<dyn Error>> {
+        if let Some(f) = sym.lift_option() {
+            unsafe{Ok(f())}
+        } else {
+            return Err(ModuleError::InvalidPointer("functions").into());
+        }
     }
 }
 
@@ -149,12 +202,12 @@ impl ConnParam {
     }
 }
 
-pub struct DeviceConnectInfo {
+pub struct DeviceConnectConf {
     params: Vec<ConnParam>,
-    c_params: Option<Vec<CConnParam>>,
+    c_params: Option<Vec<bg::ConnParam>>,
 }
 
-impl DeviceConnectInfo {
+impl DeviceConnectConf {
     pub fn new(params: Vec<ConnParam>) -> Self {
         Self {
             params,
@@ -163,11 +216,11 @@ impl DeviceConnectInfo {
     }
 }
 
-impl From<&mut DeviceConnectInfo> for CDeviceConnectInfo {
-    fn from(info: &mut DeviceConnectInfo) -> Self {
+impl From<&mut DeviceConnectConf> for bg::DeviceConnectConf {
+    fn from(info: &mut DeviceConnectConf) -> Self {
         if let Some(ref c_params) = info.c_params {
-            return CDeviceConnectInfo {
-                connection_params: c_params.as_ptr(),
+            return bg::DeviceConnectConf {
+                connection_params: c_params.as_ptr() as _,
                 connection_params_len: c_params.len() as i32,
             };
         }
@@ -175,23 +228,23 @@ impl From<&mut DeviceConnectInfo> for CDeviceConnectInfo {
         let mut c_params = Vec::with_capacity(info.params.len());
 
         for param in info.params.iter_mut() {
-            c_params.push(CConnParam {
-                name: param.get_c_name().as_ptr(),
-                value: param.value.parsed().as_ptr(),
+            c_params.push(bg::ConnParam {
+                name: param.get_c_name().as_ptr() as _,
+                value: param.value.parsed().as_ptr() as _,
             });
         }
 
         info.c_params = Some(c_params);
         let c_params_ptr = info.c_params.as_ref().unwrap();
 
-        CDeviceConnectInfo {
-            connection_params: c_params_ptr.as_ptr(),
+        bg::DeviceConnectConf {
+            connection_params: c_params_ptr.as_ptr() as _,
             connection_params_len: c_params_ptr.len() as i32,
         }
     }
 }
 
-fn convert_com_error(err: i32) -> Result<(), ComError> {
+fn convert_com_error(err: u8) -> Result<(), ComError> {
     match err {
         0 => Ok(()),
         1 => Err(ComError::ConnectionError),

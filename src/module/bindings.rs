@@ -1,69 +1,72 @@
+use super::bindings_gen as bg;
 use super::error::ModuleError;
 
-use libc::{c_char, c_void};
-use libloading::{self, Symbol};
+use libc::c_void;
 use std::ffi::CStr;
 
 pub const VERSION: u8 = 1;
 
-pub type ModVersionFn = extern "C" fn() -> u8;
-
-#[repr(C)]
-#[derive(Clone, Debug)]
-pub enum ConnParamType {
+enum ConnParamType {
     Bool,
     Int,
     Float,
     String,
 }
 
-#[repr(C)]
-pub struct CConnParamConf {
-    name: *const c_char,
-    typ: ConnParamType,
-}
-
-#[repr(C)]
-pub struct CDeviceConf {
-    connection_params: *const CConnParamConf,
-    connection_params_len: i32,
+impl From<bg::ConnParamType> for ConnParamType {
+    fn from(v: bg::ConnParamType) -> Self {
+        match v {
+            bg::ConnParamType::ConnParamBool => ConnParamType::Bool,
+            bg::ConnParamType::ConnParamInt => ConnParamType::Int,
+            bg::ConnParamType::ConnParamFloat => ConnParamType::Float,
+            bg::ConnParamType::ConnParamString => ConnParamType::String,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct ConnParamConf {
     name: String,
-    typ: ConnParamType,
+    typ: bg::ConnParamType,
 }
 
 pub type DeficeConfRec = Result<Vec<ConnParamConf>, ModuleError>;
 
-fn device_conf_from_conf(res: &mut DeficeConfRec, conf: *const CDeviceConf) {
-    if conf.is_null() {
-        *res = Err(ModuleError::InvalidPointer("device_conf"));
+fn device_connect_info(res: *mut DeficeConfRec, info: *const bg::DeviceConnectInfo) {
+    if info.is_null() {
+        unsafe {
+            *res = Err(ModuleError::InvalidPointer("device_conf"));
+        }
         return;
     }
 
-    if unsafe { (*conf).connection_params }.is_null() {
-        *res = Err(ModuleError::InvalidPointer("device_conf.connection_params"));
+    if unsafe { (*info).connection_params }.is_null() {
+        unsafe {
+            *res = Err(ModuleError::InvalidPointer("device_conf.connection_params"));
+        }
         return;
     }
 
-    let len = unsafe { (*conf).connection_params_len as usize };
+    let len = unsafe { (*info).connection_params_len as usize };
     let mut device_conf: Vec<ConnParamConf> = Vec::with_capacity(len);
 
-    let s = unsafe { std::slice::from_raw_parts((*conf).connection_params, len) };
+    let s = unsafe { std::slice::from_raw_parts((*info).connection_params, len) };
 
     for i in s {
         if i.name.is_null() {
-            *res = Err(ModuleError::InvalidPointer(
-                "device_conf.connection_params[i].name",
-            ));
+            unsafe {
+                *res = Err(ModuleError::InvalidPointer(
+                    "device_conf.connection_params[i].name",
+                ));
+            }
             return;
         }
 
         match unsafe { CStr::from_ptr(i.name).to_str() } {
             Err(err) => {
-                *res = Err(ModuleError::StrError(err.into()));
+                unsafe {
+                    *res = Err(ModuleError::StrError(err.into()));
+                }
                 return;
             }
             Ok(s) => {
@@ -75,19 +78,9 @@ fn device_conf_from_conf(res: &mut DeficeConfRec, conf: *const CDeviceConf) {
         }
     }
 
-    *res = Ok(device_conf);
-}
-
-#[repr(C)]
-pub struct CConnParam {
-    pub name: *const c_char,
-    pub value: *const c_char,
-}
-
-#[repr(C)]
-pub struct CDeviceConnectInfo {
-    pub connection_params: *const CConnParam,
-    pub connection_params_len: i32,
+    unsafe {
+        *res = Ok(device_conf);
+    }
 }
 
 pub struct Handle(*const c_void);
@@ -100,31 +93,12 @@ impl Handle {
     pub fn is_null(&self) -> bool {
         self.0.is_null()
     }
+
+    pub fn handler_raw(&mut self) -> *mut *mut c_void {
+        self as *mut Self as *mut *mut c_void
+    }
 }
 
-pub type InitFn = unsafe extern "C" fn(*mut Handle);
-
-pub type ObtainDeviceConfFn =
-    unsafe extern "C" fn(*mut Handle, *mut DeficeConfRec, ObtainDeviceConfCallback);
-
-pub type ObtainDeviceConfCallback = extern "C" fn(*mut DeficeConfRec, *const CDeviceConf);
-
-pub extern "C" fn device_conf_callback(obj: *mut DeficeConfRec, conf: *const CDeviceConf) {
-    let obj_ptr = unsafe { &mut *obj };
-    device_conf_from_conf(obj_ptr, conf);
+pub extern "C" fn device_info_callback(obj: *mut c_void, info: *mut bg::DeviceConnectInfo) {
+    device_connect_info(obj as _, info);
 }
-
-pub type ConnectDeviceFn =
-    extern "C" fn(handle: *const Handle, connect_info: *const CDeviceConnectInfo) -> i32;
-
-type DestroyFn = extern "C" fn(*const Handle);
-
-#[repr(C)]
-pub struct Functions {
-    pub init: InitFn,
-    pub obtain_device_conf: ObtainDeviceConfFn,
-    pub destroy: DestroyFn,
-    pub connect_device: ConnectDeviceFn,
-}
-
-pub type FunctionsFn = extern "C" fn() -> Functions;
