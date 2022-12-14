@@ -17,3 +17,18 @@ pub enum ModuleError {
 }
 
 debug_from_display!(ModuleError);
+
+// ComError describes recoverable errors that
+// are not neccessarily related to a broken library.
+// It may be connection error or parameter error.
+#[derive(Error)]
+pub enum ComError {
+    #[error("unknown ComError type")]
+    Unknown,
+    #[error("ConnectionError: failed to communicate with remote device")]
+    ConnectionError,
+    #[error("InvalidArgument: some of parameters is wrong")]
+    InvalidArgument,
+}
+
+debug_from_display!(ComError);

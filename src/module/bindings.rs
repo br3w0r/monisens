@@ -78,6 +78,18 @@ fn device_conf_from_conf(res: &mut DeficeConfRec, conf: *const CDeviceConf) {
     *res = Ok(device_conf);
 }
 
+#[repr(C)]
+pub struct CConnParam {
+    pub name: *const c_char,
+    pub value: *const c_char,
+}
+
+#[repr(C)]
+pub struct CDeviceConnectInfo {
+    pub connection_params: *const CConnParam,
+    pub connection_params_len: i32,
+}
+
 pub struct Handle(*const c_void);
 
 impl Handle {
@@ -98,8 +110,12 @@ pub type ObtainDeviceConfFn =
 pub type ObtainDeviceConfCallback = extern "C" fn(*mut DeficeConfRec, *const CDeviceConf);
 
 pub extern "C" fn device_conf_callback(obj: *mut DeficeConfRec, conf: *const CDeviceConf) {
-    unsafe { device_conf_from_conf(&mut *obj, conf) }
+    let obj_ptr = unsafe { &mut *obj };
+    device_conf_from_conf(obj_ptr, conf);
 }
+
+pub type ConnectDeviceFn =
+    extern "C" fn(handle: *const Handle, connect_info: *const CDeviceConnectInfo) -> i32;
 
 type DestroyFn = extern "C" fn(*const Handle);
 
@@ -108,6 +124,7 @@ pub struct Functions {
     pub init: InitFn,
     pub obtain_device_conf: ObtainDeviceConfFn,
     pub destroy: DestroyFn,
+    pub connect_device: ConnectDeviceFn,
 }
 
 pub type FunctionsFn = extern "C" fn() -> Functions;
