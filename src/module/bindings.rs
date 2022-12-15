@@ -94,8 +94,12 @@ impl Handle {
         self.0.is_null()
     }
 
-    pub fn handler_raw(&mut self) -> *mut *mut c_void {
+    pub fn handler_ptr(&mut self) -> *mut *mut c_void {
         self as *mut Self as *mut *mut c_void
+    }
+
+    pub fn handler(&mut self) -> *mut c_void {
+        self.0 as _
     }
 }
 

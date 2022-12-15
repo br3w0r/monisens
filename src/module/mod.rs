@@ -16,18 +16,14 @@ use self::error::ComError;
 pub struct Module {
     #[allow(dead_code)]
     lib: libloading::Library,
-    handler: Handle,
+    handle: Handle,
     funcs: bg::Functions,
 }
 
 impl Drop for Module {
     fn drop(&mut self) {
-        if let Some(f) = self.funcs.destroy {
-            unsafe {
-                f(&mut self.handler as *mut Handle as *mut c_void);
-            }
-        } else {
-            panic!("No destroy function for module.");
+        unsafe {
+            self.funcs.destroy.unwrap()(self.handle.handler());
         }
     }
 }
@@ -40,20 +36,17 @@ impl Module {
 
             // Check module version
             let mod_ver_fn: Symbol<bg::mod_version_fn> = lib.get(b"mod_version")?;
-            if let Some(f) = mod_ver_fn.lift_option() {
-                let ver = f();
-                if ver != VERSION {
-                    return Err(ModuleError::InvalidVersion(ver, VERSION).into());
-                }
-            } else {
-                return Err(ModuleError::InvalidPointer("mod_version").into());
+
+            let ver = mod_ver_fn.unwrap()();
+            if ver != VERSION {
+                return Err(ModuleError::InvalidVersion(ver, VERSION).into());
             }
 
             let funcs_fn: Symbol<bg::functions_fn> = lib.get(b"functions")?;
             let funcs = funcs_fn.unwrap()();
 
             let mut handler = Handle::new();
-            funcs.init.unwrap()(handler.handler_raw());
+            funcs.init.unwrap()(handler.handler_ptr());
 
             if handler.is_null() {
                 return Err(ModuleError::InvalidPointer("handle.0").into());
@@ -61,7 +54,7 @@ impl Module {
 
             Ok(Module {
                 lib,
-                handler,
+                handle: handler,
                 funcs,
             })
         }
@@ -71,7 +64,7 @@ impl Module {
         let mut conf_rec: DeficeConfRec = Ok(Vec::new());
         unsafe {
             self.funcs.obtain_device_info.unwrap()(
-                &mut self.handler as *mut Handle as *mut c_void,
+                self.handle.handler(),
                 &mut conf_rec as *mut DeficeConfRec as *mut c_void,
                 Some(device_info_callback),
             )
@@ -84,12 +77,12 @@ impl Module {
         let mut c_info = bg::DeviceConnectConf::from(conf);
         let err = unsafe {
             self.funcs.connect_device.unwrap()(
-                &mut self.handler as *mut Handle as *mut c_void,
+                &mut self.handle as *mut Handle as *mut c_void,
                 &mut c_info as _,
             )
         };
 
-        convert_com_error(err) 
+        convert_com_error(err)
     }
 }
 
