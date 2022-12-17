@@ -1,8 +1,9 @@
 use lazy_static::lazy_static;
 use std::{
+    fmt::{Debug, Write},
     sync::{Arc, Mutex, RwLock},
     time::{Duration, SystemTime},
-    vec, fmt::{Debug, Write},
+    vec,
 };
 
 lazy_static! {

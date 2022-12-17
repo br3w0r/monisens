@@ -1,14 +1,14 @@
-mod model;
 mod bindings_gen;
 pub mod error;
+mod model;
 
 use libc::c_void;
 use libloading::{self, Symbol};
 use std::error::Error;
 
-use model::*;
 use bindings_gen as bg;
 use error::ModuleError;
+use model::*;
 
 use self::error::ComError;
 
