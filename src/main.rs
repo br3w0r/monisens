@@ -2,6 +2,7 @@ mod module;
 mod query;
 mod table;
 mod tool;
+mod logger;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
