@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// ---------------------------- Инициализация ----------------------------
+
 typedef enum
 {
     ConnParamBool,
@@ -29,19 +31,11 @@ typedef struct
     char *value; // Значение параметра подключения, закодированное в строку
 } ConnParam;
 
-typedef struct DeviceConnectConf
+typedef struct
 {
     ConnParam *connection_params;
     int32_t connection_params_len;
 } DeviceConnectConf;
-
-// Инетрвал записи показаний датчика в миллисекундах
-typedef struct
-{
-    int32_t min;
-    int32_t max;
-    int32_t def;
-} RecordInterval;
 
 typedef enum
 {
@@ -49,44 +43,7 @@ typedef enum
     SensorDataFloat
 } SensorDataType;
 
-// Информация о данных, записиываемых датчиком.
-typedef struct
-{
-    SensorDataType typ;
-    char *definition; // Обозначение (Па, Н, мм и т.д.)
-    char *min;        // Минимальное воспринимаемое значение, закодированное в строку
-    char *max;        // Максимальное воспринимаемое значение, закодированное в строку
-} SensorDataInfo;
-
-typedef struct
-{
-    // Имя, которое будет использоваться для записи в базу.
-    // Может включать латинские символы и подчёркивание: `_`.
-    char *intern_name;
-    char *name;
-    RecordInterval record_interval;
-    SensorDataInfo data;
-} SensorInfo;
-
-typedef struct
-{
-    SensorInfo *sensor_infos;
-    int32_t sensor_infos_len;
-} SensorInfos;
-
-typedef void (*sensor_infos_callback)(void *, SensorInfos *);
-
-typedef struct
-{
-    bool enable;
-    int32_t record_interval;
-} SensorConf;
-
-typedef struct
-{
-    SensorConf *sensor_confs;
-    int32_t sensor_confs_len;
-} DeviceConf;
+// ---------------------------- Процесс работы модуля ----------------------------
 
 typedef uint8_t (*mod_version_fn)();
 

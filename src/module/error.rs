@@ -27,7 +27,7 @@ pub enum ComError {
     Unknown,
     #[error("ConnectionError: failed to communicate with remote device")]
     ConnectionError,
-    #[error("InvalidArgument: some of parameters is wrong")]
+    #[error("InvalidArgument: some of parameters are wrong")]
     InvalidArgument,
 }
 

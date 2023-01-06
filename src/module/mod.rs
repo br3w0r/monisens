@@ -12,6 +12,8 @@ use model::*;
 
 use self::error::ComError;
 
+pub use model::{ConnParam, ConnParamValType, DeviceConnectConf};
+
 pub struct Module {
     #[allow(dead_code)]
     lib: libloading::Library,
