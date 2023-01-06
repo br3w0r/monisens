@@ -6,6 +6,7 @@ use std::ffi::{CStr, CString};
 
 pub const VERSION: u8 = 1;
 
+#[derive(Debug)]
 enum ConnParamType {
     Bool,
     Int,
@@ -27,7 +28,7 @@ impl From<bg::ConnParamType> for ConnParamType {
 #[derive(Debug)]
 pub struct ConnParamConf {
     name: String,
-    typ: bg::ConnParamType,
+    typ: ConnParamType,
 }
 
 pub type DeficeConfRec = Result<Vec<ConnParamConf>, ModuleError>;
@@ -72,7 +73,7 @@ fn device_connect_info(res: *mut DeficeConfRec, info: *const bg::DeviceConnectIn
             Ok(s) => {
                 device_conf.push(ConnParamConf {
                     name: s.to_string(),
-                    typ: i.typ.clone(),
+                    typ: i.typ.into(),
                 });
             }
         }
