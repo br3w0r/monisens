@@ -772,6 +772,88 @@ fn bindgen_test_layout_DeviceConfInfo() {
 pub type device_conf_info_callback = ::std::option::Option<
     unsafe extern "C" fn(obj: *mut ::std::os::raw::c_void, info: *mut DeviceConfInfo),
 >;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct DeviceConfEntry {
+    pub name: *mut ::std::os::raw::c_char,
+    pub data: *mut ::std::os::raw::c_void,
+}
+#[test]
+fn bindgen_test_layout_DeviceConfEntry() {
+    const UNINIT: ::std::mem::MaybeUninit<DeviceConfEntry> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<DeviceConfEntry>(),
+        16usize,
+        concat!("Size of: ", stringify!(DeviceConfEntry))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<DeviceConfEntry>(),
+        8usize,
+        concat!("Alignment of ", stringify!(DeviceConfEntry))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(DeviceConfEntry),
+            "::",
+            stringify!(name)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(DeviceConfEntry),
+            "::",
+            stringify!(data)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct DeviceConf {
+    pub confs: *mut DeviceConfEntry,
+    pub confs_len: i32,
+}
+#[test]
+fn bindgen_test_layout_DeviceConf() {
+    const UNINIT: ::std::mem::MaybeUninit<DeviceConf> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<DeviceConf>(),
+        16usize,
+        concat!("Size of: ", stringify!(DeviceConf))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<DeviceConf>(),
+        8usize,
+        concat!("Alignment of ", stringify!(DeviceConf))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).confs) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(DeviceConf),
+            "::",
+            stringify!(confs)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).confs_len) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(DeviceConf),
+            "::",
+            stringify!(confs_len)
+        )
+    );
+}
 pub type mod_version_fn = ::std::option::Option<unsafe extern "C" fn() -> u8>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -799,6 +881,9 @@ pub struct Functions {
             callback: device_conf_info_callback,
         ),
     >,
+    pub configure_device: ::std::option::Option<
+        unsafe extern "C" fn(handler: *mut ::std::os::raw::c_void, conf: *mut DeviceConf) -> u8,
+    >,
 }
 #[test]
 fn bindgen_test_layout_Functions() {
@@ -806,7 +891,7 @@ fn bindgen_test_layout_Functions() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<Functions>(),
-        40usize,
+        48usize,
         concat!("Size of: ", stringify!(Functions))
     );
     assert_eq!(
@@ -862,6 +947,16 @@ fn bindgen_test_layout_Functions() {
             stringify!(Functions),
             "::",
             stringify!(obtain_device_conf_info)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).configure_device) as usize - ptr as usize },
+        40usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Functions),
+            "::",
+            stringify!(configure_device)
         )
     );
 }

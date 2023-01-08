@@ -138,6 +138,24 @@ typedef struct
 
 typedef void (*device_conf_info_callback)(void *obj, DeviceConfInfo *info);
 
+// Типы данных по типам параметров:
+// DeviceConfInfoEntryTypeString - char *
+// DeviceConfInfoEntryTypeInt - int32_t *
+// DeviceConfInfoEntryTypeIntRange - int32_t * => массив длины 2: {min, max}
+// DeviceConfInfoEntryTypeFloat - float32_t *
+// DeviceConfInfoEntryTypeFloatRange - float32_t * => массив длины 2: {min, max}
+// DeviceConfInfoEntryTypeJSON - char *
+// DeviceConfInfoEntryTypeChoiceList - int32_t * => индекс выбранного пункта в массиве
+typedef struct {
+    char *name;
+    void *data;
+} DeviceConfEntry;
+
+typedef struct {
+    DeviceConfEntry *confs;
+    int32_t confs_len;
+} DeviceConf;
+
 // ---------------------------- Процесс работы модуля ----------------------------
 
 typedef uint8_t (*mod_version_fn)();
@@ -149,6 +167,7 @@ typedef struct
     void (*destroy)(void *handler);
     uint8_t (*connect_device)(void *handler, DeviceConnectConf *connect_info);
     void (*obtain_device_conf_info)(void *handler, void *obj, device_conf_info_callback callback);
+    uint8_t (*configure_device)(void *handler, DeviceConf *conf);
 } Functions;
 
 typedef Functions (*functions_fn)();
