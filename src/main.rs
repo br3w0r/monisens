@@ -94,6 +94,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     m.connect_device(&mut conf)?;
 
+    let conf_info = m.obtain_device_conf_info()?;
+
+    println!("{:?}", conf_info);
+
     Ok(())
 }
 

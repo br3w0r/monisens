@@ -12,7 +12,7 @@ use model::*;
 
 use self::error::ComError;
 
-pub use model::{ConnParam, ConnParamValType, DeviceConnectConf};
+pub use model::{ConnParam, ConnParamValType, DeviceConfInfo, DeviceConnectConf};
 
 pub struct Module {
     #[allow(dead_code)]
@@ -76,13 +76,22 @@ impl Module {
 
     pub fn connect_device(&mut self, conf: &mut DeviceConnectConf) -> Result<(), ComError> {
         let mut c_info = bg::DeviceConnectConf::from(conf);
-        let err = unsafe {
-            self.funcs.connect_device.unwrap()(
-                &mut self.handle as *mut Handle as *mut c_void,
-                &mut c_info as _,
+        let err =
+            unsafe { self.funcs.connect_device.unwrap()(self.handle.handler(), &mut c_info as _) };
+
+        convert_com_error(err)
+    }
+
+    pub fn obtain_device_conf_info(&mut self) -> DeviceConfInfoRec {
+        let mut conf_rec: DeviceConfInfoRec = Ok(DeviceConfInfo::new(0));
+        unsafe {
+            self.funcs.obtain_device_conf_info.unwrap()(
+                self.handle.handler(),
+                &mut conf_rec as *mut DeviceConfInfoRec as *mut c_void,
+                Some(device_conf_info_callback),
             )
         };
 
-        convert_com_error(err)
+        conf_rec
     }
 }
