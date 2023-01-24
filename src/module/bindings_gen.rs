@@ -679,6 +679,7 @@ fn bindgen_test_layout_DeviceConfInfoEntryChoiceList() {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DeviceConfInfoEntry {
+    pub id: i32,
     pub name: *mut ::std::os::raw::c_char,
     pub typ: DeviceConfInfoEntryType,
     pub data: *mut ::std::os::raw::c_void,
@@ -689,7 +690,7 @@ fn bindgen_test_layout_DeviceConfInfoEntry() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<DeviceConfInfoEntry>(),
-        24usize,
+        32usize,
         concat!("Size of: ", stringify!(DeviceConfInfoEntry))
     );
     assert_eq!(
@@ -698,8 +699,18 @@ fn bindgen_test_layout_DeviceConfInfoEntry() {
         concat!("Alignment of ", stringify!(DeviceConfInfoEntry))
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).id) as usize - ptr as usize },
         0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(DeviceConfInfoEntry),
+            "::",
+            stringify!(id)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        8usize,
         concat!(
             "Offset of field: ",
             stringify!(DeviceConfInfoEntry),
@@ -709,7 +720,7 @@ fn bindgen_test_layout_DeviceConfInfoEntry() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).typ) as usize - ptr as usize },
-        8usize,
+        16usize,
         concat!(
             "Offset of field: ",
             stringify!(DeviceConfInfoEntry),
@@ -719,7 +730,7 @@ fn bindgen_test_layout_DeviceConfInfoEntry() {
     );
     assert_eq!(
         unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
-        16usize,
+        24usize,
         concat!(
             "Offset of field: ",
             stringify!(DeviceConfInfoEntry),
@@ -775,7 +786,7 @@ pub type device_conf_info_callback = ::std::option::Option<
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct DeviceConfEntry {
-    pub name: *mut ::std::os::raw::c_char,
+    pub id: i32,
     pub data: *mut ::std::os::raw::c_void,
 }
 #[test]
@@ -793,13 +804,13 @@ fn bindgen_test_layout_DeviceConfEntry() {
         concat!("Alignment of ", stringify!(DeviceConfEntry))
     );
     assert_eq!(
-        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        unsafe { ::std::ptr::addr_of!((*ptr).id) as usize - ptr as usize },
         0usize,
         concat!(
             "Offset of field: ",
             stringify!(DeviceConfEntry),
             "::",
-            stringify!(name)
+            stringify!(id)
         )
     );
     assert_eq!(

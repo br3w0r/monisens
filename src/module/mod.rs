@@ -12,7 +12,9 @@ use model::*;
 
 use self::error::ComError;
 
-pub use model::{ConnParam, ConnParamValType, DeviceConfInfo, DeviceConnectConf};
+pub use model::{
+    ConnParam, ConnParamValType, DeviceConfEntry, DeviceConfInfo, DeviceConfType, DeviceConnectConf,
+};
 
 pub struct Module {
     #[allow(dead_code)]
@@ -93,5 +95,24 @@ impl Module {
         };
 
         conf_rec
+    }
+
+    /// `Module::configure_device` sends config to the module.
+    ///
+    /// `confs` **must**
+    /// - include all entries with ids returned from `Module::obtain_device_conf_info`
+    /// - pass validation based on info from `Module::obtain_device_conf_info`
+    ///
+    /// Thus, `Module::obtain_device_conf_info` **must** be called before `Module::configure_device`
+    pub fn configure_device(&mut self, confs: &mut Vec<DeviceConfEntry>) -> Result<(), ComError> {
+        // TODO: validate confs (issue #60)
+        let confs_raw = build_device_conf_entry_raw_vec(confs);
+        let mut device_conf_raw = build_device_conf(&confs_raw);
+
+        let err = unsafe {
+            self.funcs.configure_device.unwrap()(self.handle.handler(), &mut device_conf_raw as _)
+        };
+
+        convert_com_error(err)
     }
 }

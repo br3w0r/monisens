@@ -125,9 +125,10 @@ typedef struct
 
 typedef struct
 {
+    int32_t id; // Уникальный id параметра (для типа `DeviceConfInfoEntryTypeSection` не указывается)
     char *name;
-    DeviceConfInfoEntryType typ; // Тип настройки
-    void *data;                  // Данные для настройки (заранее прописанные структуры)
+    DeviceConfInfoEntryType typ; // Тип параметра
+    void *data;                  // Данные для параметра (заранее прописанные структуры)
 } DeviceConfInfoEntry;
 
 typedef struct
@@ -146,12 +147,15 @@ typedef void (*device_conf_info_callback)(void *obj, DeviceConfInfo *info);
 // DeviceConfInfoEntryTypeFloatRange - float32_t * => массив длины 2: {min, max}
 // DeviceConfInfoEntryTypeJSON - char *
 // DeviceConfInfoEntryTypeChoiceList - int32_t * => индекс выбранного пункта в массиве
-typedef struct {
-    char *name;
-    void *data;
+// Все параметры могут быть NULL.
+typedef struct
+{
+    int32_t id; // Уникальный id параметра
+    void *data; // Значение параметра определённого типа
 } DeviceConfEntry;
 
-typedef struct {
+typedef struct
+{
     DeviceConfEntry *confs;
     int32_t confs_len;
 } DeviceConf;

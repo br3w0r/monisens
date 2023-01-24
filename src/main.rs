@@ -6,8 +6,8 @@ mod tool;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
-use std::env;
 use std::error::Error;
+use std::{env, ffi::CString};
 
 use query::integration::isqlx as sq;
 use query::sqlizer::Sqlizer;
@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         module::ConnParam::new("Port".into(), module::ConnParamValType::Int(8080)),
         module::ConnParam::new(
             "Message".into(),
-            module::ConnParamValType::String("Test".into()),
+            module::ConnParamValType::String("Hello, world!".into()),
         ),
     ]);
 
@@ -97,6 +97,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let conf_info = m.obtain_device_conf_info()?;
 
     println!("{:?}", conf_info);
+
+    let mut conf = vec![
+        module::DeviceConfEntry::new(1, Some(module::DeviceConfType::Int(5))),
+        module::DeviceConfEntry::new(2, Some(module::DeviceConfType::ChoiceList(2))),
+        module::DeviceConfEntry::new(
+            3,
+            Some(module::DeviceConfType::String(
+                CString::new("hello").unwrap(),
+            )),
+        ),
+    ];
+
+    m.configure_device(&mut conf)?;
 
     Ok(())
 }

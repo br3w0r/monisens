@@ -3,6 +3,7 @@ use super::error::{ComError, ModuleError};
 
 use libc::c_void;
 use std::ffi::{c_char, CStr, CString};
+use std::ptr;
 
 pub const VERSION: u8 = 1;
 
@@ -236,6 +237,7 @@ impl From<&mut DeviceConnectConf> for bg::DeviceConnectConf {
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntry {
+    pub id: i32,
     pub name: String,
     pub data: DeviceConfInfoEntryType,
 }
@@ -340,6 +342,7 @@ fn build_device_conf_info(info: *mut bg::DeviceConfInfo) -> Result<DeviceConfInf
 
     for conf in confs {
         res.device_confs.push(DeviceConfInfoEntry {
+            id: conf.id,
             name: str_from_c_char(conf.name),
             data: build_device_conf_info_entry_data(conf)?,
         });
@@ -460,6 +463,73 @@ fn device_conf_info(res: *mut DeviceConfInfoRec, info: *mut bg::DeviceConfInfo) 
 
 pub extern "C" fn device_conf_info_callback(obj: *mut c_void, info: *mut bg::DeviceConfInfo) {
     device_conf_info(obj as _, info);
+}
+
+pub enum DeviceConfType {
+    String(CString),
+    Int(i32),
+    IntRange([i32; 2]),
+    Float(f32),
+    FloatRange([f32; 2]),
+    JSON(CString),
+    ChoiceList(i32),
+}
+
+impl DeviceConfType {
+    fn as_ptr(&self) -> *mut c_void {
+        match self {
+            DeviceConfType::String(s) => s.as_ptr() as _,
+            DeviceConfType::Int(i) => i as *const i32 as _,
+            DeviceConfType::IntRange(ir) => ir.as_ptr() as _,
+            DeviceConfType::Float(f) => f as *const f32 as _,
+            DeviceConfType::FloatRange(fr) => fr.as_ptr() as _,
+            DeviceConfType::JSON(j) => j.as_ptr() as _,
+            DeviceConfType::ChoiceList(cl) => cl as *const i32 as _,
+        }
+    }
+}
+
+fn ptr_from_device_conf_option(data: &Option<DeviceConfType>) -> *mut c_void {
+    match data {
+        Some(d) => d.as_ptr(),
+        None => ptr::null::<i32>() as _,
+    }
+}
+
+pub struct DeviceConfEntry {
+    id: i32,
+    data: Option<DeviceConfType>,
+}
+
+impl DeviceConfEntry {
+    pub fn new(id: i32, data: Option<DeviceConfType>) -> Self {
+        Self { id, data }
+    }
+
+    fn get_data(&self) -> &Option<DeviceConfType> {
+        &self.data
+    }
+}
+
+pub fn build_device_conf_entry_raw_vec(
+    confs: &mut Vec<DeviceConfEntry>,
+) -> Vec<bg::DeviceConfEntry> {
+    let mut confs_raw = Vec::with_capacity(confs.len());
+    for conf in confs.iter_mut() {
+        confs_raw.push(bg::DeviceConfEntry {
+            id: conf.id,
+            data: ptr_from_device_conf_option(&conf.data),
+        })
+    }
+
+    confs_raw
+}
+
+pub fn build_device_conf(confs: &Vec<bg::DeviceConfEntry>) -> bg::DeviceConf {
+    bg::DeviceConf {
+        confs: confs.as_ptr() as _,
+        confs_len: confs.len() as _,
+    }
 }
 
 pub fn convert_com_error(err: u8) -> Result<(), ComError> {
