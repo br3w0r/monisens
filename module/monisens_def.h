@@ -37,12 +37,6 @@ typedef struct
     int32_t connection_params_len;
 } DeviceConnectConf;
 
-typedef enum
-{
-    SensorDataInt,
-    SensorDataFloat
-} SensorDataType;
-
 // --------------------------- Конфигурация устройства ---------------------------
 
 typedef enum
@@ -160,6 +154,43 @@ typedef struct
     int32_t confs_len;
 } DeviceConf;
 
+typedef enum
+{
+    SensorDataTypeInt16,
+    SensorDataTypeInt32,
+    SensorDataTypeInt64,
+    SensorDataTypeFloat32,
+    SensorDataTypeFloat64,
+    SensorDataTypeTimestamp,
+    SensorDataTypeString,
+    SensorDataTypeJSON
+} SensorDataType;
+
+typedef struct
+{
+    // Название данных. Обязательно должно быть написано в snake_case
+    // и быть уникальным для каждого данного в рамках одного сенсора.
+    char *name;
+    SensorDataType typ; // Тип данных
+} SensorDataTypeInfo;
+
+typedef struct
+{
+    // Название сенсора. Обязательно должно быть написано в snake_case
+    // и быть уникальным для каждого сенсора.
+    char *name;
+    int32_t data_type_infos_len;
+    SensorDataTypeInfo *data_type_infos; // Массив типов данных сенсора
+} SensorTypeInfo;
+
+typedef struct
+{
+    int32_t sensor_type_infos_len;
+    SensorTypeInfo *sensor_type_infos; // Массив информаций о типах данных сенсоров
+} SensorTypeInfos;
+
+typedef void (*sensor_type_infos_callback)(void *obj, SensorTypeInfos *infos);
+
 // ---------------------------- Процесс работы модуля ----------------------------
 
 typedef uint8_t (*mod_version_fn)();
@@ -172,6 +203,7 @@ typedef struct
     uint8_t (*connect_device)(void *handler, DeviceConnectConf *connect_info);
     void (*obtain_device_conf_info)(void *handler, void *obj, device_conf_info_callback callback);
     uint8_t (*configure_device)(void *handler, DeviceConf *conf);
+    uint8_t (*obtain_sensor_type_infos)(void *handler, void *obj, sensor_type_infos_callback callback);
 } Functions;
 
 typedef Functions (*functions_fn)();

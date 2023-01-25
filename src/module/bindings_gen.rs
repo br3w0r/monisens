@@ -179,12 +179,6 @@ fn bindgen_test_layout_DeviceConnectConf() {
 }
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum SensorDataType {
-    SensorDataInt = 0,
-    SensorDataFloat = 1,
-}
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub enum DeviceConfInfoEntryType {
     DeviceConfInfoEntryTypeSection = 0,
     DeviceConfInfoEntryTypeString = 1,
@@ -865,6 +859,155 @@ fn bindgen_test_layout_DeviceConf() {
         )
     );
 }
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum SensorDataType {
+    SensorDataTypeInt16 = 0,
+    SensorDataTypeInt32 = 1,
+    SensorDataTypeInt64 = 2,
+    SensorDataTypeFloat32 = 3,
+    SensorDataTypeFloat64 = 4,
+    SensorDataTypeTimestamp = 5,
+    SensorDataTypeString = 6,
+    SensorDataTypeJSON = 7,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct SensorDataTypeInfo {
+    pub name: *mut ::std::os::raw::c_char,
+    pub typ: SensorDataType,
+}
+#[test]
+fn bindgen_test_layout_SensorDataTypeInfo() {
+    const UNINIT: ::std::mem::MaybeUninit<SensorDataTypeInfo> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<SensorDataTypeInfo>(),
+        16usize,
+        concat!("Size of: ", stringify!(SensorDataTypeInfo))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SensorDataTypeInfo>(),
+        8usize,
+        concat!("Alignment of ", stringify!(SensorDataTypeInfo))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorDataTypeInfo),
+            "::",
+            stringify!(name)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).typ) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorDataTypeInfo),
+            "::",
+            stringify!(typ)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct SensorTypeInfo {
+    pub name: *mut ::std::os::raw::c_char,
+    pub data_type_infos_len: i32,
+    pub data_type_infos: *mut SensorDataTypeInfo,
+}
+#[test]
+fn bindgen_test_layout_SensorTypeInfo() {
+    const UNINIT: ::std::mem::MaybeUninit<SensorTypeInfo> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<SensorTypeInfo>(),
+        24usize,
+        concat!("Size of: ", stringify!(SensorTypeInfo))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SensorTypeInfo>(),
+        8usize,
+        concat!("Alignment of ", stringify!(SensorTypeInfo))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorTypeInfo),
+            "::",
+            stringify!(name)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_type_infos_len) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorTypeInfo),
+            "::",
+            stringify!(data_type_infos_len)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_type_infos) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorTypeInfo),
+            "::",
+            stringify!(data_type_infos)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct SensorTypeInfos {
+    pub sensor_type_infos_len: i32,
+    pub sensor_type_infos: *mut SensorTypeInfo,
+}
+#[test]
+fn bindgen_test_layout_SensorTypeInfos() {
+    const UNINIT: ::std::mem::MaybeUninit<SensorTypeInfos> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<SensorTypeInfos>(),
+        16usize,
+        concat!("Size of: ", stringify!(SensorTypeInfos))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SensorTypeInfos>(),
+        8usize,
+        concat!("Alignment of ", stringify!(SensorTypeInfos))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sensor_type_infos_len) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorTypeInfos),
+            "::",
+            stringify!(sensor_type_infos_len)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).sensor_type_infos) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorTypeInfos),
+            "::",
+            stringify!(sensor_type_infos)
+        )
+    );
+}
+pub type sensor_type_infos_callback = ::std::option::Option<
+    unsafe extern "C" fn(obj: *mut ::std::os::raw::c_void, infos: *mut SensorTypeInfos),
+>;
 pub type mod_version_fn = ::std::option::Option<unsafe extern "C" fn() -> u8>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -895,6 +1038,13 @@ pub struct Functions {
     pub configure_device: ::std::option::Option<
         unsafe extern "C" fn(handler: *mut ::std::os::raw::c_void, conf: *mut DeviceConf) -> u8,
     >,
+    pub obtain_sensor_type_infos: ::std::option::Option<
+        unsafe extern "C" fn(
+            handler: *mut ::std::os::raw::c_void,
+            obj: *mut ::std::os::raw::c_void,
+            callback: sensor_type_infos_callback,
+        ) -> u8,
+    >,
 }
 #[test]
 fn bindgen_test_layout_Functions() {
@@ -902,7 +1052,7 @@ fn bindgen_test_layout_Functions() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<Functions>(),
-        48usize,
+        56usize,
         concat!("Size of: ", stringify!(Functions))
     );
     assert_eq!(
@@ -968,6 +1118,16 @@ fn bindgen_test_layout_Functions() {
             stringify!(Functions),
             "::",
             stringify!(configure_device)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).obtain_sensor_type_infos) as usize - ptr as usize },
+        48usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Functions),
+            "::",
+            stringify!(obtain_sensor_type_infos)
         )
     );
 }
