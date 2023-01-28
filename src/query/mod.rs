@@ -44,12 +44,7 @@ impl<A: 'static> StatementBuilder<A> {
 
     pub fn columns(&mut self, columns: &[String]) -> &mut Self {
         for i in columns {
-            self.b
-                .push(
-                    "columns",
-                    Rc::new(Part::<A>::new(PredType::String(i.into()), None)),
-                )
-                .expect("failed to extend 'columns' statement");
+            self.column(i.into());
         }
 
         self
@@ -71,10 +66,29 @@ impl<A: 'static> StatementBuilder<A> {
         self
     }
 
+    /// Build `SELECT` query
+    /// ```no_run
+    /// let mut b = sq::StatementBuilder::new();
+    /// b.table("test_parse_table".to_string())
+    ///     .columns(&["id".into(), "name".into()])
+    ///     .whereq(sq::gt("id".to_string(), 2));
+    /// 
+    /// let b = b.select();
+    /// ```
     pub fn select(self) -> SelectBuilder<A> {
         SelectBuilder(self)
     }
 
+    /// Build `INSERT` query
+    /// ```no_run
+    /// let mut b = sq::StatementBuilder::new();
+    /// b.table("test_parse_table".into())
+    ///     .column("name".into())
+    ///     .set(vec!["foo".into()]).
+    ///     .set(vec!["bar".into()]);
+    /// 
+    /// let b = b.insert();
+    /// ```
     pub fn insert(self) -> InsertBuilder<A> {
         InsertBuilder(self)
     }

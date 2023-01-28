@@ -1,6 +1,7 @@
 mod logger;
 mod module;
 mod query;
+mod repo;
 mod table;
 mod tool;
 
@@ -22,98 +23,86 @@ struct Test {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    println!("Hello, world!");
+    // let args: Vec<String> = env::args().collect();
 
-    // let pool = PgPoolOptions::new()
-    //     .max_connections(5)
-    //     .connect("postgres://postgres:pgpass@localhost:5433/monisens")
-    //     .await?;
-
-    // println!("connected to a pool");
-
-    // let mut b = sq::StatementBuilder::new();
-    // b.table("test_parse_table".to_string())
-    //     .columns(&["id".into(), "name".into()])
-    //     .whereq(sq::gt("id".to_string(), 2));
-
-    // let (sql, args) = b.select().sql()?;
-
-    // let q = sq::query(&sql, &args);
-    // let res = q.fetch_all(&pool).await?;
-    // let rows: Vec<Test> = res.iter().map(|x| Test::from_row(x).unwrap()).collect();
-
-    // println!("{:?}", rows);
-
-    // let mut b = sq::StatementBuilder::new();
-    // b.table("test_parse_table".into());
-
-    // for (i, v) in vec!["this", "is", "a", "test"].drain(0..).enumerate() {
-    //     b.set(vec![((i as i32) + 1).into(), v.into()]);
+    // if args.len() < 2 {
+    //     panic!("args.len() < 2");
     // }
 
-    // let (sql, args) = b.insert().sql()?;
-    // let q = sq::query(&sql, &args);
+    // let mut m = module::Module::new(&args[1])?;
+    // let info = m.obtain_device_info()?;
 
-    // let res = q.execute(&pool).await?;
+    // println!("{:?}", info);
 
-    // println!("{}", res.rows_affected());
+    // let mut conf = module::DeviceConnectConf::new(vec![
+    //     module::ConnParam::new(
+    //         "IP".into(),
+    //         module::ConnParamValType::String("127.0.0.1".into()),
+    //     ),
+    //     module::ConnParam::new("Port".into(), module::ConnParamValType::Int(8080)),
+    //     module::ConnParam::new(
+    //         "Message".into(),
+    //         module::ConnParamValType::String("Hello, world!".into()),
+    //     ),
+    // ]);
 
-    // let mut b = sq::StatementBuilder::new();
-    // b.table("test_parse_table".into())
-    //     .whereq(sq::neq("id".into(), 2));
+    // m.connect_device(&mut conf)?;
 
-    // let (sql, args) = b.delete().sql()?;
-    // let q = sq::query(&sql, &args);
+    // let conf_info = m.obtain_device_conf_info()?;
 
-    // let res = q.execute(&pool).await?;
+    // println!("{:?}", conf_info);
 
-    // println!("{}", res.rows_affected());
+    // let mut conf = vec![
+    //     module::DeviceConfEntry::new(1, Some(module::DeviceConfType::Int(5))),
+    //     module::DeviceConfEntry::new(2, Some(module::DeviceConfType::ChoiceList(2))),
+    //     module::DeviceConfEntry::new(
+    //         3,
+    //         Some(module::DeviceConfType::String(
+    //             CString::new("hello").unwrap(),
+    //         )),
+    //     ),
+    // ];
 
-    let args: Vec<String> = env::args().collect();
+    // m.configure_device(&mut conf)?;
 
-    if args.len() < 2 {
-        panic!("args.len() < 2");
-    }
+    // let sensor_infos = m.obtain_sensor_type_infos()?;
 
-    let mut m = module::Module::new(&args[1])?;
-    let info = m.obtain_device_info()?;
+    // println!("{:?}", sensor_infos);
 
-    println!("{:?}", info);
+    let repo = repo::Repository::new("postgres://postgres:pgpass@localhost:5433/monisens").await?;
 
-    let mut conf = module::DeviceConnectConf::new(vec![
-        module::ConnParam::new(
-            "IP".into(),
-            module::ConnParamValType::String("127.0.0.1".into()),
-        ),
-        module::ConnParam::new("Port".into(), module::ConnParamValType::Int(8080)),
-        module::ConnParam::new(
-            "Message".into(),
-            module::ConnParamValType::String("Hello, world!".into()),
-        ),
-    ]);
+    let mut id_field = Field::new(1, "id".into(), table::FieldType::Int64).unwrap();
+    id_field.add_opt(FieldOption::PrimaryKey).unwrap();
+    id_field.add_opt(FieldOption::Unique).unwrap();
+    id_field.add_opt(FieldOption::NotNull).unwrap();
+    id_field.add_opt(FieldOption::AutoIncrement).unwrap();
 
-    m.connect_device(&mut conf)?;
+    let mut name_field = Field::new(2, "name".into(), table::FieldType::Text).unwrap();
+    name_field.add_opt(FieldOption::NotNull).unwrap();
 
-    let conf_info = m.obtain_device_conf_info()?;
+    let mut table = Table::new("test_table".into()).unwrap();
+    table.add_field(id_field).unwrap();
+    table.add_field(name_field).unwrap();
 
-    println!("{:?}", conf_info);
+    repo.create_table(table).await?;
 
-    let mut conf = vec![
-        module::DeviceConfEntry::new(1, Some(module::DeviceConfType::Int(5))),
-        module::DeviceConfEntry::new(2, Some(module::DeviceConfType::ChoiceList(2))),
-        module::DeviceConfEntry::new(
-            3,
-            Some(module::DeviceConfType::String(
-                CString::new("hello").unwrap(),
-            )),
-        ),
-    ];
+    let mut b = sq::StatementBuilder::new();
+    b.table("test_table".to_string())
+        .column("name".into())
+        .set(vec!["foo".into()])
+        .set(vec!["bar".into()]);
 
-    m.configure_device(&mut conf)?;
+    repo.exec(b.insert()).await?;
 
-    let sensor_infos = m.obtain_sensor_type_infos()?;
+    let mut b = sq::StatementBuilder::new();
+    b.table("test_table".to_string())
+        .columns(&["id".into(), "name".into()]);
 
-    println!("{:?}", sensor_infos);
+    let res: Vec<Test> = repo.select(b.select()).await?;
+
+    println!("{:?}", res);
+
+    repo.exec_raw("DROP TABLE test_table").await?;
 
     Ok(())
 }
