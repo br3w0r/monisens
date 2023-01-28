@@ -72,7 +72,7 @@ impl<A: 'static> StatementBuilder<A> {
     /// b.table("test_parse_table".to_string())
     ///     .columns(&["id".into(), "name".into()])
     ///     .whereq(sq::gt("id".to_string(), 2));
-    /// 
+    ///
     /// let b = b.select();
     /// ```
     pub fn select(self) -> SelectBuilder<A> {
@@ -86,7 +86,7 @@ impl<A: 'static> StatementBuilder<A> {
     ///     .column("name".into())
     ///     .set(vec!["foo".into()]).
     ///     .set(vec!["bar".into()]);
-    /// 
+    ///
     /// let b = b.insert();
     /// ```
     pub fn insert(self) -> InsertBuilder<A> {
