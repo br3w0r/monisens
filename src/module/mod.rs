@@ -13,7 +13,8 @@ use model::*;
 use self::error::ComError;
 
 pub use model::{
-    ConnParam, ConnParamValType, DeviceConfEntry, DeviceConfInfo, DeviceConfType, DeviceConnectConf,
+    ConnParam, ConnParamValType, DeviceConfEntry, DeviceConfInfo, DeviceConfType,
+    DeviceConnectConf, SensorTypeInfo,
 };
 
 pub struct Module {
@@ -114,5 +115,18 @@ impl Module {
         };
 
         convert_com_error(err)
+    }
+
+    pub fn obtain_sensor_type_infos(&mut self) -> SensorTypeInfosRec {
+        let mut infos_rec: SensorTypeInfosRec = Ok(vec![]);
+        unsafe {
+            self.funcs.obtain_sensor_type_infos.unwrap()(
+                self.handle.handler(),
+                &mut infos_rec as *mut SensorTypeInfosRec as *mut c_void,
+                Some(sensor_type_infos_callback),
+            )
+        };
+
+        infos_rec
     }
 }

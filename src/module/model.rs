@@ -532,6 +532,99 @@ pub fn build_device_conf(confs: &Vec<bg::DeviceConfEntry>) -> bg::DeviceConf {
     }
 }
 
+#[derive(Debug)]
+pub enum SensorDataType {
+    Int16,
+    Int32,
+    Int64,
+    Float32,
+    Float64,
+    Timestamp,
+    String,
+    JSON,
+}
+
+impl From<bg::SensorDataType> for SensorDataType {
+    fn from(value: bg::SensorDataType) -> Self {
+        match value {
+            bg::SensorDataType::SensorDataTypeInt16 => SensorDataType::Int16,
+            bg::SensorDataType::SensorDataTypeInt32 => SensorDataType::Int32,
+            bg::SensorDataType::SensorDataTypeInt64 => SensorDataType::Int64,
+            bg::SensorDataType::SensorDataTypeFloat32 => SensorDataType::Float32,
+            bg::SensorDataType::SensorDataTypeFloat64 => SensorDataType::Float64,
+            bg::SensorDataType::SensorDataTypeTimestamp => SensorDataType::Timestamp,
+            bg::SensorDataType::SensorDataTypeString => SensorDataType::String,
+            bg::SensorDataType::SensorDataTypeJSON => SensorDataType::JSON,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SensorDataTypeInfo {
+    pub name: String,
+    pub typ: SensorDataType,
+}
+
+#[derive(Debug)]
+pub struct SensorTypeInfo {
+    pub name: String,
+    pub data_type_infos: Vec<SensorDataTypeInfo>,
+}
+
+pub fn build_sensor_type_infos(
+    infos: *mut bg::SensorTypeInfos,
+) -> Result<Vec<SensorTypeInfo>, ModuleError> {
+    let infos_slice = unsafe {
+        std::slice::from_raw_parts(
+            (*infos).sensor_type_infos,
+            (*infos).sensor_type_infos_len as _,
+        )
+    };
+
+    let mut res_infos = Vec::with_capacity(infos_slice.len());
+    for info in infos_slice {
+        let data_type_infos_slice = unsafe {
+            std::slice::from_raw_parts(info.data_type_infos, info.data_type_infos_len as _)
+        };
+
+        let mut res_data_type_infos_slice = Vec::with_capacity(data_type_infos_slice.len());
+        for data_type_info in data_type_infos_slice {
+            res_data_type_infos_slice.push(SensorDataTypeInfo {
+                name: str_from_c_char(data_type_info.name),
+                typ: data_type_info.typ.into(),
+            })
+        }
+
+        res_infos.push(SensorTypeInfo {
+            name: str_from_c_char(info.name),
+            data_type_infos: res_data_type_infos_slice,
+        })
+    }
+
+    Ok(res_infos)
+}
+
+pub type SensorTypeInfosRec = Result<Vec<SensorTypeInfo>, ModuleError>;
+
+fn sensor_type_infos(res: *mut SensorTypeInfosRec, infos: *mut bg::SensorTypeInfos) {
+    if infos.is_null() {
+        unsafe {
+            *res = Err(ModuleError::InvalidPointer("device_conf"));
+        }
+        return;
+    }
+
+    unsafe {
+        *res = build_sensor_type_infos(infos);
+    }
+}
+
+pub extern "C" fn sensor_type_infos_callback(obj: *mut c_void, infos: *mut bg::SensorTypeInfos) {
+    sensor_type_infos(obj as _, infos);
+}
+
+// ------------------- Utility functions -------------------
+
 pub fn convert_com_error(err: u8) -> Result<(), ComError> {
     match err {
         0 => Ok(()),

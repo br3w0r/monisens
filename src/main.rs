@@ -111,6 +111,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     m.configure_device(&mut conf)?;
 
+    let sensor_infos = m.obtain_sensor_type_infos()?;
+
+    println!("{:?}", sensor_infos);
+
     Ok(())
 }
 
