@@ -81,6 +81,15 @@ static_arg_expr!(gte);
 static_arg_expr!(lt);
 static_arg_expr!(lte);
 
+pub fn inq<T: ArgType + 'static>(col: String, vals: Vec<T>) -> Rc<dyn Sqlizer<GenericArg>> {
+    let mut v: Vec<GenericArg> = Vec::with_capacity(vals.len());
+    for val in vals {
+        v.push(Box::new(val));
+    }
+
+    expr::inq(col, v)
+}
+
 pub fn query<'a>(
     sql: &'a str,
     args: &'a Option<Vec<Rc<GenericArg>>>,

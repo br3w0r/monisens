@@ -74,4 +74,10 @@ impl Repository {
 
         Ok(res)
     }
+
+    pub async fn migrate(&self) -> Result<(), Box<dyn Error>> {
+        sqlx::migrate!().run(&self.pool).await?;
+
+        Ok(())
+    }
 }

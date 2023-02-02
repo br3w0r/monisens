@@ -3,7 +3,7 @@ mod field;
 mod index;
 mod test;
 
-use crate::tool::validation::validate_word;
+use crate::tool::validation::validate_chars;
 
 pub use error::*;
 pub use field::*;
@@ -17,7 +17,7 @@ pub struct Table {
 
 impl Table {
     pub fn new(name: String) -> Result<Self, TableError> {
-        if let Err(err) = validate_word(&name) {
+        if let Err(err) = validate_chars(&name) {
             return Err(TableError::Validation(err));
         }
 

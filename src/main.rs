@@ -2,6 +2,7 @@ mod logger;
 mod module;
 mod query;
 mod repo;
+mod service;
 mod table;
 mod tool;
 
@@ -71,38 +72,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let repo = repo::Repository::new("postgres://postgres:pgpass@localhost:5433/monisens").await?;
 
-    let mut id_field = Field::new(1, "id".into(), table::FieldType::Int64).unwrap();
-    id_field.add_opt(FieldOption::PrimaryKey).unwrap();
-    id_field.add_opt(FieldOption::Unique).unwrap();
-    id_field.add_opt(FieldOption::NotNull).unwrap();
-    id_field.add_opt(FieldOption::AutoIncrement).unwrap();
+    let service = service::Service::new(repo).await?;
 
-    let mut name_field = Field::new(2, "name".into(), table::FieldType::Text).unwrap();
-    name_field.add_opt(FieldOption::NotNull).unwrap();
-
-    let mut table = Table::new("test_table".into()).unwrap();
-    table.add_field(id_field).unwrap();
-    table.add_field(name_field).unwrap();
-
-    repo.create_table(table).await?;
-
-    let mut b = sq::StatementBuilder::new();
-    b.table("test_table".to_string())
-        .column("name".into())
-        .set(vec!["foo".into()])
-        .set(vec!["bar".into()]);
-
-    repo.exec(b.insert()).await?;
-
-    let mut b = sq::StatementBuilder::new();
-    b.table("test_table".to_string())
-        .columns(&["id".into(), "name".into()]);
-
-    let res: Vec<Test> = repo.select(b.select()).await?;
-
-    println!("{:?}", res);
-
-    repo.exec_raw("DROP TABLE test_table").await?;
+    println!("{}", service.device_count());
 
     Ok(())
 }

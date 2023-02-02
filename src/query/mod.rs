@@ -68,6 +68,8 @@ impl<A: 'static> StatementBuilder<A> {
 
     /// Build `SELECT` query
     /// ```no_run
+    /// use query::integration::isqlx as sq;
+    /// 
     /// let mut b = sq::StatementBuilder::new();
     /// b.table("test_parse_table".to_string())
     ///     .columns(&["id".into(), "name".into()])
@@ -81,6 +83,8 @@ impl<A: 'static> StatementBuilder<A> {
 
     /// Build `INSERT` query
     /// ```no_run
+    /// use query::integration::isqlx as sq;
+    /// 
     /// let mut b = sq::StatementBuilder::new();
     /// b.table("test_parse_table".into())
     ///     .column("name".into())

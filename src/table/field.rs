@@ -1,4 +1,4 @@
-use crate::tool::validation::validate_word;
+use crate::tool::validation::validate_chars;
 use std::collections::HashSet;
 
 use super::error::FieldError;
@@ -12,7 +12,7 @@ pub struct Field {
 
 impl Field {
     pub fn new(idx: u8, name: String, typ: FieldType) -> Result<Self, FieldError> {
-        if let Err(err) = validate_word(&name) {
+        if let Err(err) = validate_chars(&name) {
             return Err(FieldError::Validation(err));
         }
 

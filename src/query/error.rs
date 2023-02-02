@@ -46,3 +46,11 @@ pub enum DeleteError {
 }
 
 debug_from_display!(DeleteError);
+
+#[derive(Error)]
+pub enum ExprError {
+    #[error("no args for expression")]
+    NoArgs
+}
+
+debug_from_display!(ExprError);

@@ -1,19 +1,19 @@
 #[cfg(test)]
-use super::validation::validate_word;
+use super::validation::validate_chars;
 
 #[test]
 fn test_validate_word() {
     // Success
-    let res = validate_word("one_word");
+    let res = validate_chars("one_word");
     assert!(!res.is_err());
 
-    let res = validate_word("numbers1234567890");
+    let res = validate_chars("numbers1234567890");
     assert!(!res.is_err());
 
     // Failure
-    let res = validate_word("two words");
+    let res = validate_chars("two words");
     assert!(res.is_err());
 
-    let res = validate_word("?unknown_chars");
+    let res = validate_chars("?unknown_chars");
     assert!(res.is_err());
 }

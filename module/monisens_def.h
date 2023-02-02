@@ -177,7 +177,7 @@ typedef struct
 typedef struct
 {
     // Название сенсора. Обязательно должно быть написано в snake_case
-    // и быть уникальным для каждого сенсора.
+    // и быть уникальным для каждого сенсора в рамках одного устройства.
     char *name;
     int32_t data_type_infos_len;
     SensorDataTypeInfo *data_type_infos; // Массив типов данных сенсора
