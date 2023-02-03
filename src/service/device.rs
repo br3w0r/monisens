@@ -87,6 +87,7 @@ impl DeviceManager {
             device_map: HashMap::new(),
         };
 
+        // Init devices
         for device in devices {
             res.device_map.insert(
                 DeviceID(device.id),
@@ -103,6 +104,7 @@ impl DeviceManager {
             }
         }
 
+        // Init all sensors
         let mut sensors_res: HashMap<String, Sensor> = HashMap::new();
 
         for sensor_type in sensor_types {
@@ -129,6 +131,7 @@ impl DeviceManager {
             }
         }
 
+        // Map sensors to its devices
         for device_sensor in device_sensors {
             let device_id = DeviceID(device_sensor.device_id);
 
