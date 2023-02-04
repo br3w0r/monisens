@@ -16,7 +16,7 @@ pub fn data_dir() -> String {
 #[cfg(target_os = "linux")]
 pub fn data_dir() -> String {
     let path = std::env::var("HOME").expect("no HOME env var") + "/.monisens/";
-    check_and_create_data_dir();
+    check_and_create_data_dir(&path);
 
     path
 }
@@ -24,7 +24,7 @@ pub fn data_dir() -> String {
 #[cfg(target_os = "windows")]
 pub fn data_dir() -> String {
     let path = std::env::var("APP_DATA").expect("no APP_DATA env var") + "/.monisens/";
-    check_and_create_data_dir();
+    check_and_create_data_dir(&path);
 
     path
 }
