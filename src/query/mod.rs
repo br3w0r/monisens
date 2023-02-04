@@ -31,20 +31,20 @@ impl<A: 'static> StatementBuilder<A> {
         self
     }
 
-    pub fn column(&mut self, column: String) -> &mut Self {
+    pub fn column<S: Into<String>>(&mut self, column: S) -> &mut Self {
         self.b
             .push(
                 "columns",
-                Rc::new(Part::new(PredType::String(column), None)),
+                Rc::new(Part::new(PredType::String(column.into()), None)),
             )
             .expect("failed to extend 'columns' statement");
 
         self
     }
 
-    pub fn columns(&mut self, columns: &[String]) -> &mut Self {
-        for i in columns {
-            self.column(i.into());
+    pub fn columns<S: AsRef<str>>(&mut self, columns: &[S]) -> &mut Self {
+        for i in columns.into_iter() {
+            self.column(i.as_ref());
         }
 
         self
@@ -69,7 +69,7 @@ impl<A: 'static> StatementBuilder<A> {
     /// Build `SELECT` query
     /// ```no_run
     /// use query::integration::isqlx as sq;
-    /// 
+    ///
     /// let mut b = sq::StatementBuilder::new();
     /// b.table("test_parse_table".to_string())
     ///     .columns(&["id".into(), "name".into()])
@@ -84,7 +84,7 @@ impl<A: 'static> StatementBuilder<A> {
     /// Build `INSERT` query
     /// ```no_run
     /// use query::integration::isqlx as sq;
-    /// 
+    ///
     /// let mut b = sq::StatementBuilder::new();
     /// b.table("test_parse_table".into())
     ///     .column("name".into())

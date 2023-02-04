@@ -1,13 +1,18 @@
 mod db_model;
 mod device;
+mod model;
 
+use sqlx::{Pool, Postgres};
 use std::collections::HashSet;
 use std::error::Error;
+use tokio::io::AsyncRead;
 
 use crate::query::integration::isqlx as sq;
+use crate::tool::query_trait::{ColumnsTrait, InsertTrait};
 use crate::{repo, tool::validation};
 
 pub use device::DeviceID;
+pub use model::*;
 
 const DEVICE_NAME_MAX_LEN: usize = 255;
 
@@ -28,15 +33,45 @@ impl Service {
         })
     }
 
-    pub fn device_count(&self) -> usize {
-        self.device_manager.device_count()
+    pub async fn start_device_init<'f, F: AsyncRead + Unpin + ?Sized>(
+        &self,
+        name: String,
+        module_file: &'f mut F,
+    ) -> Result<DeviceInitData, Box<dyn Error>> {
+        validate_device_name(&name)?;
+
+        let (id, module_dir, data_dir) = self
+            .device_manager
+            .start_device_init(name.clone(), module_file)
+            .await?;
+
+        let mut b = sq::StatementBuilder::new();
+        b.table(db_model::Device::table_name())
+            .columns(db_model::Device::columns());
+
+        db_model::Device {
+            id: id.into(),
+            name,
+            module_dir: module_dir.clone(),
+            data_dir: data_dir.clone(),
+            init_state: db_model::DeviceInitState::Device,
+        }
+        .insert(&mut b);
+
+        self.repo.exec(b.insert()).await?;
+
+        Ok(DeviceInitData {
+            id,
+            module_dir,
+            data_dir,
+        })
     }
 
     async fn init_device_manager(
         repo: &repo::Repository,
     ) -> Result<device::DeviceManager, Box<dyn Error>> {
         let mut b = sq::StatementBuilder::new();
-        b.table(db_model::Device::table_name()).column("*".into());
+        b.table(db_model::Device::table_name()).column("*");
 
         let devices: Vec<db_model::Device> = repo.select(b.select()).await?;
 
@@ -45,8 +80,7 @@ impl Service {
         }
 
         let mut b = sq::StatementBuilder::new();
-        b.table(db_model::DeviceSensor::table_name())
-            .column("*".into());
+        b.table(db_model::DeviceSensor::table_name()).column("*");
 
         let device_sensors: Vec<db_model::DeviceSensor> = repo.select(b.select()).await?;
 
@@ -57,16 +91,18 @@ impl Service {
 
         let sensor_table_names: Vec<String> = sensor_table_names.drain().collect();
 
-        let mut b = sq::StatementBuilder::new();
-        b.table("information_schema.columns".into())
-            .columns(&[
-                "table_name".into(),
-                "column_name".into(),
-                "udt_name".into(),
-            ])
-            .whereq(sq::inq("table_name".into(), sensor_table_names));
+        let sensor_types: Vec<db_model::ColumnType> = {
+            if sensor_table_names.len() > 0 {
+                let mut b = sq::StatementBuilder::new();
+                b.table("information_schema.columns".into())
+                    .columns(db_model::ColumnType::columns())
+                    .whereq(sq::inq("table_name".into(), sensor_table_names));
 
-        let sensor_types: Vec<db_model::ColumnType> = repo.select(b.select()).await?;
+                repo.select(b.select()).await?
+            } else {
+                Vec::new()
+            }
+        };
 
         let device_manager = device::DeviceManager::new(&devices, &device_sensors, &sensor_types)?;
 

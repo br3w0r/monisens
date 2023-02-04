@@ -1,0 +1,8 @@
+use super::device;
+
+#[derive(Debug)]
+pub struct DeviceInitData {
+    pub id: device::DeviceID,
+    pub module_dir: String,
+    pub data_dir: String,
+}

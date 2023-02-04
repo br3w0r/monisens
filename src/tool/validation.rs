@@ -23,7 +23,7 @@ debug_from_display!(ValidationError);
 
 pub fn validate_len(s: &str, max_len: usize) -> Result<(), ValidationError> {
     if s.len() > max_len {
-        return Err(ValidationError::LengthExceeded(max_len))
+        return Err(ValidationError::LengthExceeded(max_len));
     }
 
     Ok(())

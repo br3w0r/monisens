@@ -14,13 +14,22 @@ pub trait ArgType: fmt::Debug {
     ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>;
 }
 
+#[macro_export]
 macro_rules! ref_arg_type {
     ($ty:ty) => {
-        impl ArgType for $ty {
+        impl crate::query::integration::isqlx::ArgType for $ty {
             fn bind<'q>(
                 &'q self,
-                q: Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments>,
-            ) -> Query<'q, Postgres, <Postgres as HasArguments<'q>>::Arguments> {
+                q: sqlx::query::Query<
+                    'q,
+                    sqlx::postgres::Postgres,
+                    <sqlx::postgres::Postgres as sqlx::database::HasArguments<'q>>::Arguments,
+                >,
+            ) -> sqlx::query::Query<
+                'q,
+                sqlx::postgres::Postgres,
+                <sqlx::postgres::Postgres as sqlx::database::HasArguments<'q>>::Arguments,
+            > {
                 q.bind(self)
             }
         }
@@ -41,9 +50,10 @@ ref_arg_type!(String);
 
 pub type GenericArg = Box<dyn ArgType + 'static>;
 
+#[macro_export]
 macro_rules! arg_from_ty {
     ($ty:ty) => {
-        impl From<$ty> for GenericArg {
+        impl From<$ty> for crate::query::integration::isqlx::GenericArg {
             fn from(v: $ty) -> Self {
                 Box::new(v)
             }

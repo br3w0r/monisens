@@ -1,13 +1,29 @@
 use std::collections::HashMap;
+use std::error::Error;
 use std::fmt;
+use std::path::Path;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
+use std::sync::RwLock;
 
-use crate::debug_from_display;
+use tokio::fs;
+use tokio::io;
+use tokio::io::AsyncRead;
+
+use crate::{app, debug_from_display};
 
 use super::db_model;
 
-use thiserror::Error;
+#[cfg(target_os = "macos")]
+const MODULE_FILE_EXT: &str = ".dylib";
 
-#[derive(Error)]
+#[cfg(target_os = "linux")]
+const MODULE_FILE_EXT: &str = ".so";
+
+#[cfg(target_os = "windows")]
+const MODULE_FILE_EXT: &str = ".dll";
+
+#[derive(thiserror::Error)]
 pub enum DeviceError {
     // TODO
     #[error("unknown device was provided in device_sensors")]
@@ -68,39 +84,46 @@ pub struct Device {
     sensor_map: HashMap<String, Sensor>,
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq, Default, Clone, Copy)]
 pub struct DeviceID(i32);
 
+impl From<DeviceID> for i32 {
+    fn from(value: DeviceID) -> Self {
+        value.0
+    }
+}
+
 pub struct DeviceManager {
-    last_id: DeviceID,
-    device_map: HashMap<DeviceID, Device>,
+    last_id: Arc<AtomicI32>,
+    device_map: Arc<RwLock<HashMap<DeviceID, Arc<RwLock<Device>>>>>,
+    data_dir: Arc<String>,
 }
 
 impl DeviceManager {
+    /// `new` method creates an internal map of devices based on the provided `devices` vector and associates
+    /// the device with its sensors based on the information in `device_sensors` and `sensor_types`.
     pub fn new(
         devices: &Vec<db_model::Device>,
         device_sensors: &Vec<db_model::DeviceSensor>,
         sensor_types: &Vec<db_model::ColumnType>,
-    ) -> Result<Self, DeviceError> {
-        let mut res = Self {
-            last_id: DeviceID(0),
-            device_map: HashMap::new(),
-        };
+    ) -> Result<Self, Box<dyn Error>> {
+        let mut last_id: i32 = 0;
+        let mut device_map: HashMap<DeviceID, Arc<RwLock<Device>>> = Default::default();
 
         // Init devices
         for device in devices {
-            res.device_map.insert(
+            device_map.insert(
                 DeviceID(device.id),
-                Device {
+                Arc::new(RwLock::new(Device {
                     name: device.name.clone(),
                     module_dir: device.module_dir.clone(),
                     data_dir: device.data_dir.clone(),
                     sensor_map: HashMap::new(),
-                },
+                })),
             );
 
-            if device.id > res.last_id.0 {
-                res.last_id = DeviceID(device.id);
+            if device.id > last_id {
+                last_id = device.id;
             }
         }
 
@@ -124,10 +147,10 @@ impl DeviceManager {
                     },
                 );
             } else {
-                return Err(DeviceError::SensorDataUnknownType(
+                return Err(Box::new(DeviceError::SensorDataUnknownType(
                     sensor_type.table_name.clone(),
                     sensor_type.column_name.clone(),
-                ));
+                )));
             }
         }
 
@@ -135,30 +158,113 @@ impl DeviceManager {
         for device_sensor in device_sensors {
             let device_id = DeviceID(device_sensor.device_id);
 
-            if let Some(device) = res.device_map.get_mut(&device_id) {
+            if let Some(device) = device_map.get(&device_id) {
                 if let Some(sensor) = sensors_res.remove(&device_sensor.sensor_table_name) {
+                    let mut device = device.write().unwrap();
+
                     device
                         .sensor_map
                         .insert(device_sensor.sensor_table_name.clone(), sensor);
                 }
             } else {
-                return Err(DeviceError::DeviceSensorsUnknownDevice);
+                return Err(Box::new(DeviceError::DeviceSensorsUnknownDevice));
             }
         }
 
-        Ok(res)
+        Ok(Self {
+            last_id: Arc::new(AtomicI32::new(last_id)),
+            device_map: Arc::new(RwLock::new(device_map)),
+            data_dir: Arc::new(check_and_return_base_dir()),
+        })
     }
 
-    pub fn device_count(&self) -> usize {
-        self.device_map.len()
+    /// `start_device_init` creates directories for device's data and module and writes
+    /// module file to `<app_dir>/device/<id>-<device_name_snake_case>/module/` directory
+    ///
+    /// Created structure:
+    /// ```
+    /// <app_dir>/
+    ///     device/
+    ///         <id>-<device_name_snake_case>/
+    ///             module/
+    ///             data/
+    /// ```
+    pub async fn start_device_init<'f, F>(
+        &self,
+        name: String,
+        module_file: &'f mut F,
+    ) -> Result<(DeviceID, String, String), Box<dyn Error>>
+    where
+        F: AsyncRead + Unpin + ?Sized,
+    {
+        let id = self.inc_last_id();
+
+        let dir_name = id.0.to_string() + "-" + &name + "/";
+        self.create_data_dir(&dir_name).await?;
+
+        let module_dir = dir_name.clone() + "module/";
+        self.create_data_dir(&module_dir).await?;
+
+        let data_dir = dir_name.clone() + "data/";
+        self.create_data_dir(&data_dir).await?;
+
+        let full_module_path = (*self.data_dir).clone() + &module_dir + "lib" + MODULE_FILE_EXT;
+        create_file(&full_module_path, module_file).await?;
+
+        let device = Device {
+            name,
+            module_dir: module_dir.clone(),
+            data_dir: data_dir.clone(),
+            sensor_map: Default::default(),
+        };
+
+        (*self.device_map.write().unwrap()).insert(id, Arc::new(RwLock::new(device)));
+
+        Ok((id, module_dir, data_dir))
+    }
+
+    fn inc_last_id(&self) -> DeviceID {
+        let prev_last_id = self.last_id.fetch_add(1, Ordering::SeqCst);
+
+        DeviceID(prev_last_id + 1)
+    }
+
+    async fn create_data_dir(&self, rel_path: &str) -> io::Result<()> {
+        fs::create_dir((*self.data_dir).clone() + rel_path).await
     }
 }
 
 impl Default for DeviceManager {
     fn default() -> Self {
         Self {
-            last_id: DeviceID(0),
+            last_id: Default::default(),
             device_map: Default::default(),
+            data_dir: Arc::new(check_and_return_base_dir()),
         }
     }
+}
+
+fn check_and_return_base_dir() -> String {
+    let path = app::data_dir() + "device/";
+    let p = Path::new(&path);
+
+    if !p.is_dir() {
+        std::fs::create_dir(p).unwrap();
+    }
+
+    path
+}
+
+async fn create_file<'a, R: AsyncRead + Unpin + ?Sized>(
+    path: &str,
+    data: &'a mut R,
+) -> io::Result<()> {
+    if let Ok(_) = fs::File::open(path).await {
+        return Err(io::ErrorKind::AlreadyExists.into());
+    }
+
+    let mut file = fs::File::create(path).await?;
+    io::copy(data, &mut file).await?;
+
+    Ok(())
 }

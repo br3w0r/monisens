@@ -1,8 +1,10 @@
+mod querier;
+
 use std::error::Error;
 
 use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult, PgRow},
-    Executor, FromRow, Pool, Postgres,
+    query_as_unchecked, Executor, FromRow, Pool, Postgres,
 };
 
 use crate::query::integration::isqlx::{self as sq, ArgType};
@@ -21,21 +23,14 @@ impl Repository {
     }
 
     pub async fn create_table(&self, table: Table) -> Result<(), Box<dyn Error>> {
-        let table_q = table.parse()?;
-
-        sqlx::query(&table_q).execute(&self.pool).await?;
-
-        Ok(())
+        querier::create_table(&self.pool, table).await
     }
 
     pub async fn exec<S: Sqlizer<Box<dyn ArgType>>>(
         &self,
         q: S,
     ) -> Result<PgQueryResult, Box<dyn Error>> {
-        let (sql, args) = q.sql()?;
-        let res = sq::query(&sql, &args).execute(&self.pool).await?;
-
-        Ok(res)
+        querier::exec(&self.pool, q).await
     }
 
     pub async fn get<S, T>(&self, q: S) -> Result<T, Box<dyn Error>>
@@ -43,12 +38,7 @@ impl Repository {
         S: Sqlizer<Box<dyn ArgType>>,
         T: for<'r> FromRow<'r, PgRow>,
     {
-        let (sql, args) = q.sql()?;
-        let row = sq::query(&sql, &args).fetch_one(&self.pool).await?;
-
-        let res = T::from_row(&row)?;
-
-        Ok(res)
+        querier::get(&self.pool, q).await
     }
 
     pub async fn select<S, T>(&self, q: S) -> Result<Vec<T>, Box<dyn Error>>
@@ -56,28 +46,65 @@ impl Repository {
         S: Sqlizer<Box<dyn ArgType>>,
         T: for<'r> FromRow<'r, PgRow>,
     {
-        let (sql, args) = q.sql()?;
-        let rows = sq::query(&sql, &args).fetch_all(&self.pool).await?;
-
-        let mut res = Vec::with_capacity(rows.len());
-
-        for row in rows {
-            let entry = T::from_row(&row)?;
-            res.push(entry);
-        }
-
-        Ok(res)
+        querier::select(&self.pool, q).await
     }
 
     pub async fn exec_raw(&self, sql: &str) -> Result<PgQueryResult, Box<dyn Error>> {
-        let res = sqlx::query(sql).execute(&self.pool).await?;
-
-        Ok(res)
+        querier::exec_raw(&self.pool, sql).await
     }
 
     pub async fn migrate(&self) -> Result<(), Box<dyn Error>> {
         sqlx::migrate!().run(&self.pool).await?;
 
         Ok(())
+    }
+
+    pub async fn tx(&self) -> Result<Transaction, sqlx::Error> {
+        let tx = self.pool.begin().await?;
+
+        Ok(Transaction(tx))
+    }
+}
+
+pub struct Transaction<'c>(sqlx::Transaction<'c, Postgres>);
+
+impl<'c> Transaction<'c> {
+    pub async fn create_table(&mut self, table: Table) -> Result<(), Box<dyn Error>> {
+        querier::create_table(&mut self.0, table).await
+    }
+
+    pub async fn exec<S: Sqlizer<Box<dyn ArgType>>>(
+        &mut self,
+        q: S,
+    ) -> Result<PgQueryResult, Box<dyn Error>> {
+        querier::exec(&mut self.0, q).await
+    }
+
+    pub async fn get<S, T>(&mut self, q: S) -> Result<T, Box<dyn Error>>
+    where
+        S: Sqlizer<Box<dyn ArgType>>,
+        T: for<'r> FromRow<'r, PgRow>,
+    {
+        querier::get(&mut self.0, q).await
+    }
+
+    pub async fn select<S, T>(&mut self, q: S) -> Result<Vec<T>, Box<dyn Error>>
+    where
+        S: Sqlizer<Box<dyn ArgType>>,
+        T: for<'r> FromRow<'r, PgRow>,
+    {
+        querier::select(&mut self.0, q).await
+    }
+
+    pub async fn exec_raw(&mut self, sql: &str) -> Result<PgQueryResult, Box<dyn Error>> {
+        querier::exec_raw(&mut self.0, sql).await
+    }
+
+    pub async fn commit(self) -> Result<(), sqlx::Error> {
+        self.0.commit().await
+    }
+
+    pub async fn rollback(self) -> Result<(), sqlx::Error> {
+        self.0.rollback().await
     }
 }

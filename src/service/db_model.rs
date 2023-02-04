@@ -1,6 +1,12 @@
 use sqlx::FromRow;
 
-#[derive(sqlx::Type)]
+use crate::{
+    arg_from_ty, ref_arg_type,
+    tool::query_trait::{ColumnsTrait, InsertTrait},
+};
+use macros::Table;
+
+#[derive(sqlx::Type, Debug)]
 #[sqlx(type_name = "device_init_state", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DeviceInitState {
     Device,
@@ -16,12 +22,20 @@ impl ToString for DeviceInitState {
     }
 }
 
-#[derive(FromRow)]
+ref_arg_type!(DeviceInitState);
+arg_from_ty!(DeviceInitState);
+
+#[derive(FromRow, Table)]
 pub struct Device {
+    #[column]
     pub id: i32,
+    #[column]
     pub name: String,
+    #[column]
     pub module_dir: String,
+    #[column]
     pub data_dir: String,
+    #[column]
     pub init_state: DeviceInitState,
 }
 
@@ -31,9 +45,24 @@ impl Device {
     }
 }
 
-#[derive(FromRow)]
+// TODO: macro for this trait
+impl InsertTrait for Device {
+    fn insert(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+        b.set(vec![
+            self.id.into(),
+            self.name.into(),
+            self.module_dir.into(),
+            self.data_dir.into(),
+            self.init_state.into(),
+        ]);
+    }
+}
+
+#[derive(FromRow, Table)]
 pub struct DeviceSensor {
+    #[column]
     pub device_id: i32,
+    #[column]
     pub sensor_table_name: String,
 }
 
@@ -44,9 +73,12 @@ impl DeviceSensor {
 }
 
 /// For retrieving device's sensors data types from `information_schema.columns`
-#[derive(FromRow)]
+#[derive(FromRow, Table)]
 pub struct ColumnType {
+    #[column]
     pub table_name: String,
+    #[column]
     pub column_name: String,
+    #[column]
     pub udt_name: String,
 }

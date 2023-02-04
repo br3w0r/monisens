@@ -50,7 +50,7 @@ debug_from_display!(DeleteError);
 #[derive(Error)]
 pub enum ExprError {
     #[error("no args for expression")]
-    NoArgs
+    NoArgs,
 }
 
 debug_from_display!(ExprError);

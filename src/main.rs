@@ -1,3 +1,4 @@
+mod app;
 mod logger;
 mod module;
 mod query;
@@ -74,7 +75,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let service = service::Service::new(repo).await?;
 
-    println!("{}", service.device_count());
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        panic!("args.len() < 2");
+    }
+
+    let mut file = tokio::fs::File::open(&args[1]).await?;
+
+    let meta = file.metadata().await?;
+
+    let res = service
+        .start_device_init("test_device".into(), &mut file)
+        .await?;
+
+    println!("{:?}", res);
+
+    println!("Hello!");
 
     Ok(())
 }
