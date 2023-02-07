@@ -9,6 +9,7 @@ mod tool;
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::FromRow;
+use std::collections::HashMap;
 use std::error::Error;
 use std::{env, ffi::CString};
 
@@ -73,7 +74,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let repo = repo::Repository::new("postgres://postgres:pgpass@localhost:5433/monisens").await?;
 
-    let service = service::Service::new(repo).await?;
+    let svc = service::Service::new(repo).await?;
 
     let args: Vec<String> = env::args().collect();
 
@@ -83,15 +84,56 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let mut file = tokio::fs::File::open(&args[1]).await?;
 
-    let meta = file.metadata().await?;
-
-    let res = service
+    let res = svc
         .start_device_init("test_device".into(), &mut file)
         .await?;
 
     println!("{:?}", res);
 
-    println!("Hello!");
+    svc.device_sensor_init(
+        res.id,
+        vec![
+            service::Sensor {
+                name: "test_sensor_1".into(),
+                data_map: HashMap::from([
+                    (
+                        "temp".into(),
+                        service::SensorData {
+                            name: "temp".into(),
+                            typ: service::SensorDataType::Float64,
+                        },
+                    ),
+                    (
+                        "timestamp".into(),
+                        service::SensorData {
+                            name: "timestamp".into(),
+                            typ: service::SensorDataType::Timestamp,
+                        },
+                    ),
+                ]),
+            },
+            service::Sensor {
+                name: "test_sensor_2".into(),
+                data_map: HashMap::from([
+                    (
+                        "timestamp".into(),
+                        service::SensorData {
+                            name: "timestamp".into(),
+                            typ: service::SensorDataType::Timestamp,
+                        },
+                    ),
+                    (
+                        "message".into(),
+                        service::SensorData {
+                            name: "message".into(),
+                            typ: service::SensorDataType::String,
+                        },
+                    ),
+                ]),
+            },
+        ],
+    )
+    .await?;
 
     Ok(())
 }

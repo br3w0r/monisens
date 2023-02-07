@@ -10,7 +10,7 @@ use tokio::fs;
 use tokio::io;
 use tokio::io::AsyncRead;
 
-use crate::{app, debug_from_display};
+use crate::{app, debug_from_display, table::FieldType};
 
 use super::db_model;
 
@@ -34,7 +34,7 @@ pub enum DeviceError {
 
 debug_from_display!(DeviceError);
 
-enum SensorDataType {
+pub enum SensorDataType {
     Int16,
     Int32,
     Int64,
@@ -59,19 +59,32 @@ impl SensorDataType {
             _ => None,
         }
     }
+
+    pub fn to_table_type(&self) -> FieldType {
+        match self {
+            SensorDataType::Int16 => FieldType::Int16,
+            SensorDataType::Int32 => FieldType::Int32,
+            SensorDataType::Int64 => FieldType::Int64,
+            SensorDataType::Float32 => FieldType::Float32,
+            SensorDataType::Float64 => FieldType::Float64,
+            SensorDataType::Timestamp => FieldType::Timestamp,
+            SensorDataType::String => FieldType::Text,
+            SensorDataType::JSON => FieldType::JSON,
+        }
+    }
 }
 
 pub struct SensorData {
-    name: String,
-    typ: SensorDataType,
+    pub name: String,
+    pub typ: SensorDataType,
 }
 
 pub struct Sensor {
     /// == sensor's table name
-    name: String,
+    pub name: String,
 
     /// key in the [`HashMap`] is equal to [`SensorData`]`.name`
-    data_map: HashMap<String, SensorData>,
+    pub data_map: HashMap<String, SensorData>,
 }
 
 pub struct Device {
@@ -86,6 +99,12 @@ pub struct Device {
 
 #[derive(Debug, Eq, Hash, PartialEq, Default, Clone, Copy)]
 pub struct DeviceID(i32);
+
+impl DeviceID {
+    pub fn get_raw(&self) -> i32 {
+        self.0
+    }
+}
 
 impl From<DeviceID> for i32 {
     fn from(value: DeviceID) -> Self {
@@ -221,6 +240,32 @@ impl DeviceManager {
         (*self.device_map.write().unwrap()).insert(id, Arc::new(RwLock::new(device)));
 
         Ok((id, module_dir, data_dir))
+    }
+
+    pub fn device_sensor_init(&self, device_id: DeviceID, sensors: Vec<Sensor>) {
+        for sensor in sensors {
+            self.device_map
+                .read()
+                .unwrap()
+                .get(&device_id)
+                .unwrap()
+                .write()
+                .unwrap()
+                .sensor_map
+                .insert(sensor.name.clone(), sensor);
+        }
+    }
+
+    pub fn get_device_name(&self, id: &DeviceID) -> String {
+        self.device_map
+            .read()
+            .unwrap()
+            .get(id)
+            .unwrap()
+            .read()
+            .unwrap()
+            .name
+            .clone()
     }
 
     fn inc_last_id(&self) -> DeviceID {

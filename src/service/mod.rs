@@ -1,5 +1,6 @@
 mod db_model;
 mod device;
+mod error;
 mod model;
 
 use sqlx::{Pool, Postgres};
@@ -8,13 +9,16 @@ use std::error::Error;
 use tokio::io::AsyncRead;
 
 use crate::query::integration::isqlx as sq;
-use crate::tool::query_trait::{ColumnsTrait, InsertTrait};
-use crate::{repo, tool::validation};
+use crate::tool::query_trait::{ColumnsTrait, SetTrait};
+use crate::{repo, table, tool::validation};
 
-pub use device::DeviceID;
+pub use device::{DeviceID, Sensor, SensorData, SensorDataType};
+pub use error::ServiceError;
 pub use model::*;
 
-const DEVICE_NAME_MAX_LEN: usize = 255;
+use self::db_model::DeviceSensor;
+
+const BASE_NAME_MAX_LEN: usize = 255;
 
 pub struct Service {
     repo: repo::Repository,
@@ -38,7 +42,12 @@ impl Service {
         name: String,
         module_file: &'f mut F,
     ) -> Result<DeviceInitData, Box<dyn Error>> {
-        validate_device_name(&name)?;
+        if let Err(err) = base_validate_name(&name) {
+            return Err(Box::new(ServiceError::NameValidationErr(
+                "device name".into(),
+                err,
+            )));
+        }
 
         let (id, module_dir, data_dir) = self
             .device_manager
@@ -56,7 +65,7 @@ impl Service {
             data_dir: data_dir.clone(),
             init_state: db_model::DeviceInitState::Device,
         }
-        .insert(&mut b);
+        .set(&mut b);
 
         self.repo.exec(b.insert()).await?;
 
@@ -65,6 +74,83 @@ impl Service {
             module_dir,
             data_dir,
         })
+    }
+
+    pub async fn device_sensor_init(
+        &self,
+        device_id: DeviceID,
+        sensors: Vec<Sensor>,
+    ) -> Result<(), Box<dyn Error>> {
+        // Data validation and table creation
+        let mut tables = Vec::with_capacity(sensors.len());
+        let mut device_sensor_query = sq::StatementBuilder::new();
+        device_sensor_query
+            .table(DeviceSensor::table_name())
+            .columns(DeviceSensor::columns());
+
+        let device_name = self.device_manager.get_device_name(&device_id);
+
+        for (i, sensor) in sensors.iter().enumerate() {
+            if let Err(err) = base_validate_name(&sensor.name) {
+                return Err(Box::new(ServiceError::NameValidationErr(
+                    format!("sensor[{}].name", i),
+                    err,
+                )));
+            }
+
+            if sensor.data_map.len() == 0 {
+                return Err(Box::new(ServiceError::DeviceSensorInitErr(
+                    "a sensor must specify at least one data type".into(),
+                )));
+            }
+
+            let table_name = sensor_table_name(device_id, &device_name, &sensor.name);
+            let mut table = table::Table::new(table_name.clone())?;
+
+            DeviceSensor {
+                device_id: device_id.get_raw(),
+                sensor_table_name: table_name,
+            }
+            .set(&mut device_sensor_query);
+
+            for (key, data) in sensor.data_map.iter() {
+                // Validate sensor's data type name
+                if key != &data.name {
+                    return Err(Box::new(ServiceError::DeviceSensorInitErr(
+                        "sensor's data map key is not equal to it's value.name".into(),
+                    )));
+                }
+                if let Err(err) = base_validate_name(&data.name) {
+                    return Err(Box::new(ServiceError::NameValidationErr(
+                        format!("sensor[{}].data_map['{}'].name", i, &data.name),
+                        err,
+                    )));
+                }
+
+                // Add data type column to the table
+                let mut data_type_field =
+                    table::Field::new(data.name.clone(), data.typ.to_table_type())?;
+                data_type_field.add_opt(table::FieldOption::NotNull)?;
+
+                table.add_field(data_type_field)?;
+            }
+
+            tables.push(table);
+        }
+
+        // Creating tables in TX
+        // TODO: Retries?
+        let mut tx = self.repo.tx().await?;
+        for table in tables {
+            tx.create_table(table).await?;
+        }
+        tx.exec(device_sensor_query.insert()).await?;
+
+        tx.commit().await?;
+
+        self.device_manager.device_sensor_init(device_id, sensors);
+
+        Ok(())
     }
 
     async fn init_device_manager(
@@ -110,8 +196,12 @@ impl Service {
     }
 }
 
-fn validate_device_name(s: &str) -> Result<(), validation::ValidationError> {
-    validation::validate_len(s, DEVICE_NAME_MAX_LEN);
+fn base_validate_name(s: &str) -> Result<(), validation::ValidationError> {
+    validation::validate_len(s, BASE_NAME_MAX_LEN)?;
     validation::validate_chars(s)?;
     validation::validate_snake_case(s)
+}
+
+fn sensor_table_name(device_id: DeviceID, device_name: &str, sensor_name: &str) -> String {
+    device_id.get_raw().to_string() + "-" + device_name + "__" + sensor_name
 }

@@ -1,8 +1,10 @@
+use std::vec;
+
 use sqlx::FromRow;
 
 use crate::{
     arg_from_ty, ref_arg_type,
-    tool::query_trait::{ColumnsTrait, InsertTrait},
+    tool::query_trait::{ColumnsTrait, SetTrait},
 };
 use macros::Table;
 
@@ -46,8 +48,8 @@ impl Device {
 }
 
 // TODO: macro for this trait
-impl InsertTrait for Device {
-    fn insert(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+impl SetTrait for Device {
+    fn set(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
         b.set(vec![
             self.id.into(),
             self.name.into(),
@@ -69,6 +71,12 @@ pub struct DeviceSensor {
 impl DeviceSensor {
     pub fn table_name() -> String {
         "device_sensor".into()
+    }
+}
+
+impl SetTrait for DeviceSensor {
+    fn set(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+        b.set(vec![self.device_id.into(), self.sensor_table_name.into()]);
     }
 }
 

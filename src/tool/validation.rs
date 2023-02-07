@@ -5,7 +5,7 @@ use std::fmt;
 use thiserror::Error;
 
 lazy_static! {
-    static ref RE_SINGLE_WORD: Regex = Regex::new(r"^[a-zA-Z0-9_]+$").unwrap();
+    static ref RE_SINGLE_WORD: Regex = Regex::new(r"^[a-zA-Z0-9_\-]+$").unwrap();
     static ref RE_SNAKE_CASE: Regex = Regex::new(r"^[a-zA-Z0-9]+(_[a-zA-Z0-9]+)*$").unwrap();
 }
 
