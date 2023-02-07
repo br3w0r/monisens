@@ -127,7 +127,8 @@ impl DeviceManager {
         sensor_types: &Vec<db_model::ColumnType>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut last_id: i32 = 0;
-        let mut device_map: HashMap<DeviceID, Arc<RwLock<Device>>> = Default::default();
+        let mut device_map: HashMap<DeviceID, Arc<RwLock<Device>>> =
+            HashMap::with_capacity(devices.len());
 
         // Init devices
         for device in devices {
