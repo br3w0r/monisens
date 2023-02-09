@@ -3,7 +3,6 @@ mod device;
 mod error;
 mod model;
 
-use sqlx::{Pool, Postgres};
 use std::collections::HashSet;
 use std::error::Error;
 use tokio::io::AsyncRead;
@@ -15,8 +14,6 @@ use crate::{repo, table, tool::validation};
 pub use device::{DeviceID, Sensor, SensorData, SensorDataType};
 pub use error::ServiceError;
 pub use model::*;
-
-use self::db_model::DeviceSensor;
 
 const BASE_NAME_MAX_LEN: usize = 255;
 
@@ -85,10 +82,10 @@ impl Service {
         let mut tables = Vec::with_capacity(sensors.len());
         let mut device_sensor_query = sq::StatementBuilder::new();
         device_sensor_query
-            .table(DeviceSensor::table_name())
-            .columns(DeviceSensor::columns());
+            .table(db_model::DeviceSensor::table_name())
+            .columns(db_model::DeviceSensor::columns());
 
-        let device_name = self.device_manager.get_device_name(&device_id);
+        let device_name = self.device_manager.get_device_name(&device_id)?;
 
         for (i, sensor) in sensors.iter().enumerate() {
             if let Err(err) = base_validate_name(&sensor.name) {
@@ -107,7 +104,7 @@ impl Service {
             let table_name = sensor_table_name(device_id, &device_name, &sensor.name);
             let mut table = table::Table::new(table_name.clone())?;
 
-            DeviceSensor {
+            db_model::DeviceSensor {
                 device_id: device_id.get_raw(),
                 sensor_table_name: table_name,
             }
@@ -138,7 +135,7 @@ impl Service {
             tables.push(table);
         }
 
-        // Creating tables in TX
+        // Create tables in TX
         // TODO: Retries?
         let mut tx = self.repo.tx().await?;
         for table in tables {
@@ -146,9 +143,46 @@ impl Service {
         }
         tx.exec(device_sensor_query.insert()).await?;
 
+        // Update device's init_state
+        // TODO
+        // let mut b = sq::StatementBuilder::new();
+        // b.table(db_model::Device::table_name())
+        //     .column("init_state")
+        //     .set(vec![db_model::DeviceInitState::Sensors.into()]);
+
+        // tx.exec(b.u)
+
+        self.device_manager
+            .device_sensor_init(&device_id, sensors)?;
+
         tx.commit().await?;
 
-        self.device_manager.device_sensor_init(device_id, sensors);
+        Ok(())
+    }
+
+    pub async fn interrupt_device_init(&self, id: DeviceID) -> Result<(), Box<dyn Error>> {
+        let mut tx = self.repo.tx().await?;
+
+        // Check whether device's state is 'DEVICE'
+        let mut b = sq::StatementBuilder::new();
+        b.table(db_model::Device::table_name())
+            .column("init_state")
+            .whereq(sq::eq("id".into(), id.get_raw()));
+
+        let init_state: (db_model::DeviceInitState,) = tx.get(b.select()).await?;
+        if init_state.0 != db_model::DeviceInitState::Device {
+            return Err(Box::new(ServiceError::DeviceAlreadyInitialized(id)));
+        }
+
+        // Delete device's info
+        let mut b = sq::StatementBuilder::new();
+        b.table(db_model::Device::table_name())
+            .whereq(sq::eq("id".into(), id.get_raw()));
+
+        tx.exec(b.delete()).await?;
+
+        self.device_manager.delete_device(&id).await?;
+        tx.commit().await?;
 
         Ok(())
     }

@@ -8,7 +8,7 @@ use crate::{
 };
 use macros::Table;
 
-#[derive(sqlx::Type, Debug)]
+#[derive(sqlx::Type, Debug, PartialEq)]
 #[sqlx(type_name = "device_init_state", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DeviceInitState {
     Device,

@@ -30,6 +30,8 @@ pub enum DeviceError {
     DeviceSensorsUnknownDevice,
     #[error("unknown sensor data type in table '{0}' in column '{1}'")]
     SensorDataUnknownType(String, String),
+    #[error("device with id '{0}' was not found. Most probably it was deleted")]
+    DeviceNotFound(DeviceID),
 }
 
 debug_from_display!(DeviceError);
@@ -97,6 +99,16 @@ pub struct Device {
     sensor_map: HashMap<String, Sensor>,
 }
 
+impl Device {
+    pub fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub fn get_sensors(&self) -> &HashMap<String, Sensor> {
+        &self.sensor_map
+    }
+}
+
 #[derive(Debug, Eq, Hash, PartialEq, Default, Clone, Copy)]
 pub struct DeviceID(i32);
 
@@ -109,6 +121,12 @@ impl DeviceID {
 impl From<DeviceID> for i32 {
     fn from(value: DeviceID) -> Self {
         value.0
+    }
+}
+
+impl fmt::Display for DeviceID {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -158,44 +176,49 @@ impl DeviceManager {
                     data_map: HashMap::new(),
                 });
 
-            if let Some(typ) = SensorDataType::from_db_type(&sensor_type.udt_name) {
-                sensor.data_map.insert(
-                    sensor_type.column_name.clone(),
-                    SensorData {
-                        name: sensor_type.column_name.clone(),
-                        typ: typ,
-                    },
-                );
-            } else {
-                return Err(Box::new(DeviceError::SensorDataUnknownType(
+            let typ = SensorDataType::from_db_type(&sensor_type.udt_name).ok_or(
+                DeviceError::SensorDataUnknownType(
                     sensor_type.table_name.clone(),
                     sensor_type.column_name.clone(),
-                )));
-            }
+                ),
+            )?;
+
+            sensor.data_map.insert(
+                sensor_type.column_name.clone(),
+                SensorData {
+                    name: sensor_type.column_name.clone(),
+                    typ: typ,
+                },
+            );
         }
 
         // Map sensors to its devices
         for device_sensor in device_sensors {
             let device_id = DeviceID(device_sensor.device_id);
 
-            if let Some(device) = device_map.get(&device_id) {
-                if let Some(sensor) = sensors_res.remove(&device_sensor.sensor_table_name) {
-                    let mut device = device.write().unwrap();
+            let device = device_map
+                .get(&device_id)
+                .ok_or(DeviceError::DeviceSensorsUnknownDevice)?;
 
-                    device
-                        .sensor_map
-                        .insert(device_sensor.sensor_table_name.clone(), sensor);
-                }
-            } else {
-                return Err(Box::new(DeviceError::DeviceSensorsUnknownDevice));
+            if let Some(sensor) = sensors_res.remove(&device_sensor.sensor_table_name) {
+                let mut device = device.write().unwrap();
+
+                device
+                    .sensor_map
+                    .insert(device_sensor.sensor_table_name.clone(), sensor);
             }
         }
 
-        Ok(Self {
+        let res = Self {
             last_id: Arc::new(AtomicI32::new(last_id)),
             device_map: Arc::new(RwLock::new(device_map)),
             data_dir: Arc::new(check_and_return_base_dir()),
-        })
+        };
+
+        // TODO: Replace with logger
+        println!("Inited DeviceManager with data_dir = {}", &res.data_dir);
+
+        Ok(res)
     }
 
     /// `start_device_init` creates directories for device's data and module and writes
@@ -219,7 +242,7 @@ impl DeviceManager {
     {
         let id = self.inc_last_id();
 
-        let dir_name = id.0.to_string() + "-" + &name + "/";
+        let dir_name = build_device_dir_name(&id, &name);
         self.create_data_dir(&dir_name).await?;
 
         let module_dir = dir_name.clone() + "module/";
@@ -243,30 +266,52 @@ impl DeviceManager {
         Ok((id, module_dir, data_dir))
     }
 
-    pub fn device_sensor_init(&self, device_id: DeviceID, sensors: Vec<Sensor>) {
-        for sensor in sensors {
-            self.device_map
-                .read()
-                .unwrap()
-                .get(&device_id)
-                .unwrap()
-                .write()
-                .unwrap()
-                .sensor_map
-                .insert(sensor.name.clone(), sensor);
+    pub fn get_device(&self, id: &DeviceID) -> Result<Arc<RwLock<Device>>, DeviceError> {
+        if let Some(device) = self.device_map.read().unwrap().get(id) {
+            Ok(device.clone())
+        } else {
+            Err(DeviceError::DeviceNotFound(id.clone()))
         }
     }
 
-    pub fn get_device_name(&self, id: &DeviceID) -> String {
-        self.device_map
-            .read()
-            .unwrap()
+    pub fn device_sensor_init(
+        &self,
+        device_id: &DeviceID,
+        sensors: Vec<Sensor>,
+    ) -> Result<(), DeviceError> {
+        let device = self.get_device(device_id)?;
+        let mut device = device.write().unwrap();
+        for sensor in sensors {
+            device.sensor_map.insert(sensor.name.clone(), sensor);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_device_name(&self, id: &DeviceID) -> Result<String, DeviceError> {
+        let device = self.get_device(id)?;
+        let device = device.read().unwrap();
+
+        Ok(device.name.clone())
+    }
+
+    pub async fn delete_device(&self, id: &DeviceID) -> Result<(), Box<dyn Error>> {
+        let mut device_map = self.device_map.write().unwrap();
+
+        let device = device_map
             .get(id)
-            .unwrap()
-            .read()
-            .unwrap()
-            .name
-            .clone()
+            .ok_or(DeviceError::DeviceNotFound(id.clone()))?
+            .clone();
+
+        // Intentionally lock device for write 'cause we're deleting it
+        let device = device.write().unwrap();
+
+        let device_dir = self.data_dir.to_string() + &build_device_dir_name(id, &device.name);
+        fs::remove_dir_all(device_dir).await?;
+
+        device_map.remove(id);
+
+        Ok(())
     }
 
     fn inc_last_id(&self) -> DeviceID {
@@ -299,6 +344,10 @@ fn check_and_return_base_dir() -> String {
     }
 
     path
+}
+
+fn build_device_dir_name(id: &DeviceID, name: &String) -> String {
+    id.0.to_string() + "-" + &name + "/"
 }
 
 async fn create_file<'a, R: AsyncRead + Unpin + ?Sized>(

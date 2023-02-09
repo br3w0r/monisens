@@ -3,4 +3,4 @@ create table device_sensor (
 	sensor_table_name text
 );
 
-create index device_sensor_idx on device_sensor(device_id, sensor_table_name);
+create unique index device_sensor_idx on device_sensor(device_id, sensor_table_name);
