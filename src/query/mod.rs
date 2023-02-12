@@ -11,7 +11,13 @@ use sqlizer::{Part, PredType, Sqlizer, Values};
 use std::error::Error;
 use std::rc::Rc;
 
-use self::error::{DeleteError, InsertError, SelectError};
+use self::error::{DeleteError, InsertError, SelectError, UpdateError};
+
+const TABLE: &str = "table";
+const COLUMNS: &str = "columns";
+const WHERE: &str = "where";
+const VALUES: &str = "values";
+const SET: &str = "set";
 
 pub struct StatementBuilder<A> {
     b: Builder<A>,
@@ -24,7 +30,7 @@ impl<A: 'static> StatementBuilder<A> {
 
     pub fn table(&mut self, table: String) -> &mut Self {
         self.b.set(
-            "table".to_string(),
+            TABLE.to_string(),
             Rc::new(Part::new(PredType::String(table), None)),
         );
 
@@ -34,7 +40,7 @@ impl<A: 'static> StatementBuilder<A> {
     pub fn column<S: Into<String>>(&mut self, column: S) -> &mut Self {
         self.b
             .push(
-                "columns",
+                COLUMNS,
                 Rc::new(Part::new(PredType::String(column.into()), None)),
             )
             .expect("failed to extend 'columns' statement");
@@ -52,16 +58,26 @@ impl<A: 'static> StatementBuilder<A> {
 
     pub fn whereq(&mut self, sq: Rc<dyn Sqlizer<A>>) -> &mut Self {
         self.b
-            .push("where", sq.into())
+            .push(WHERE, sq.into())
             .expect("failed to extend 'where' statement");
 
         self
     }
 
-    pub fn set(&mut self, vals: Vec<A>) -> &mut Self {
+    // `values` appends 'VALUES' clause for insert statement
+    pub fn values(&mut self, vals: Vec<A>) -> &mut Self {
         self.b
-            .push("values", Rc::new(Values::from(vals)))
+            .push(VALUES, Rc::new(Values::from(vals)))
             .expect("failed to extend 'values' statement");
+
+        self
+    }
+
+    // `set` appends 'SET' clause for update statement
+    pub fn set(&mut self, column: String, value: A) -> &mut Self {
+        self.b
+            .push(SET, SetExpr::new(column, value))
+            .expect("failed to extend 'set' statement");
 
         self
     }
@@ -100,13 +116,17 @@ impl<A: 'static> StatementBuilder<A> {
     pub fn delete(self) -> DeleteBuilder<A> {
         DeleteBuilder(self)
     }
+
+    pub fn update(self) -> UpdateBuilder<A> {
+        UpdateBuilder(self)
+    }
 }
 
 pub struct SelectBuilder<A>(StatementBuilder<A>);
 
 impl<A: 'static> Sqlizer<A> for SelectBuilder<A> {
     fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
-        let columns = match self.0.b.get_vec("columns") {
+        let columns = match self.0.b.get_vec(COLUMNS) {
             Some(cols) => {
                 if cols.len() == 0 {
                     return Err(SelectError::NoColumns.into());
@@ -124,12 +144,12 @@ impl<A: 'static> Sqlizer<A> for SelectBuilder<A> {
 
         tool::append_sql(&columns, &mut sql, ", ", &mut args)?;
 
-        if let Some(from) = self.0.b.get("table") {
+        if let Some(from) = self.0.b.get(TABLE) {
             sql.push_str(" FROM ");
             tool::append_sql(&vec![from], &mut sql, ", ", &mut args)?;
         }
 
-        if let Some(wher) = self.0.b.get_vec("where") {
+        if let Some(wher) = self.0.b.get_vec(WHERE) {
             if wher.len() > 0 {
                 sql.push_str(" WHERE ");
                 tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
@@ -144,12 +164,9 @@ pub struct InsertBuilder<A>(StatementBuilder<A>);
 
 impl<A: 'static> Sqlizer<A> for InsertBuilder<A> {
     fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
-        let into = match self.0.b.get("table") {
-            Some(v) => Ok(v),
-            None => Err(InsertError::NoTable),
-        }?;
+        let into = self.0.b.get(TABLE).ok_or(InsertError::NoTable)?;
 
-        let values = match self.0.b.get_vec("values") {
+        let values = match self.0.b.get_vec(VALUES) {
             Some(v) => {
                 if v.len() == 0 {
                     return Err(InsertError::NoValues.into());
@@ -170,7 +187,7 @@ impl<A: 'static> Sqlizer<A> for InsertBuilder<A> {
             sql.push_str(&s);
         }
 
-        if let Some(columns) = self.0.b.get_vec("columns") {
+        if let Some(columns) = self.0.b.get_vec(COLUMNS) {
             if columns.len() > 0 {
                 sql.push('(');
                 if let Err(err) = tool::append_sql(&columns, &mut sql, ", ", &mut args) {
@@ -191,10 +208,7 @@ pub struct DeleteBuilder<A>(StatementBuilder<A>);
 
 impl<A: 'static> Sqlizer<A> for DeleteBuilder<A> {
     fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
-        let into = match self.0.b.get("table") {
-            Some(v) => Ok(v),
-            None => Err(DeleteError::NoTable),
-        }?;
+        let into = self.0.b.get(TABLE).ok_or(DeleteError::NoTable)?;
 
         let mut sql = String::new();
         let mut args = Vec::new();
@@ -206,7 +220,46 @@ impl<A: 'static> Sqlizer<A> for DeleteBuilder<A> {
             sql.push_str(&s);
         }
 
-        if let Some(wher) = self.0.b.get_vec("where") {
+        if let Some(wher) = self.0.b.get_vec(WHERE) {
+            if wher.len() > 0 {
+                sql.push_str(" WHERE ");
+                tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
+            }
+        }
+
+        Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
+    }
+}
+
+pub struct UpdateBuilder<A>(StatementBuilder<A>);
+
+impl<A: 'static> Sqlizer<A> for UpdateBuilder<A> {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
+        let into = self.0.b.get(TABLE).ok_or(UpdateError::NoTable)?;
+        let sets = match self.0.b.get_vec(SET) {
+            Some(v) => {
+                if v.len() == 0 {
+                    return Err(UpdateError::NoSets.into());
+                }
+
+                Ok(v)
+            }
+            None => Err(UpdateError::NoSets),
+        }?;
+
+        let mut sql = String::new();
+        let mut args = Vec::new();
+
+        sql.push_str("UPDATE ");
+        {
+            let (s, _) = into.sql()?;
+            sql.push_str(&s);
+        }
+
+        sql.push_str(" SET ");
+        tool::append_sql(&sets, &mut sql, ", ", &mut args)?;
+
+        if let Some(wher) = self.0.b.get_vec(WHERE) {
             if wher.len() > 0 {
                 sql.push_str(" WHERE ");
                 tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;

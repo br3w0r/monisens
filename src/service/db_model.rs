@@ -4,7 +4,7 @@ use sqlx::FromRow;
 
 use crate::{
     arg_from_ty, ref_arg_type,
-    tool::query_trait::{ColumnsTrait, SetTrait},
+    tool::query_trait::{ColumnsTrait, ValuesTrait},
 };
 use macros::Table;
 
@@ -48,9 +48,9 @@ impl Device {
 }
 
 // TODO: macro for this trait
-impl SetTrait for Device {
-    fn set(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
-        b.set(vec![
+impl ValuesTrait for Device {
+    fn values(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+        b.values(vec![
             self.id.into(),
             self.name.into(),
             self.module_dir.into(),
@@ -74,9 +74,9 @@ impl DeviceSensor {
     }
 }
 
-impl SetTrait for DeviceSensor {
-    fn set(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
-        b.set(vec![self.device_id.into(), self.sensor_table_name.into()]);
+impl ValuesTrait for DeviceSensor {
+    fn values(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+        b.values(vec![self.device_id.into(), self.sensor_table_name.into()]);
     }
 }
 

@@ -79,3 +79,27 @@ pub fn inq<A: 'static>(col: String, mut val: Vec<A>) -> Rc<dyn Sqlizer<A>> {
         values: val.drain(..).map(|v| Rc::new(v)).collect(),
     })
 }
+
+pub struct SetExpr<A: 'static> {
+    col: String,
+    val: Rc<A>,
+}
+
+impl<A: 'static> SetExpr<A> {
+    pub fn new(col: String, val: A) -> Rc<dyn Sqlizer<A>> {
+        Rc::new(SetExpr {
+            col: col,
+            val: Rc::new(val),
+        })
+    }
+}
+
+impl<A: 'static> Sqlizer<A> for SetExpr<A> {
+    fn sql(&self) -> Result<(String, Option<Vec<Rc<A>>>), Box<dyn Error>> {
+        let mut s = String::with_capacity(self.col.len() + 4);
+        s.push_str(&self.col);
+        s.push_str(" = ?");
+
+        Ok((s, Some(vec![Rc::clone(&self.val)])))
+    }
+}

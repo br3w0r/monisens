@@ -7,8 +7,9 @@ use std::collections::HashSet;
 use std::error::Error;
 use tokio::io::AsyncRead;
 
+use crate::module::DeviceConfType;
 use crate::query::integration::isqlx as sq;
-use crate::tool::query_trait::{ColumnsTrait, SetTrait};
+use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
 use crate::{repo, table, tool::validation};
 
 pub use device::{DeviceID, Sensor, SensorData, SensorDataType};
@@ -34,6 +35,11 @@ impl Service {
         })
     }
 
+    /// `start_device_init` starts device initialization by initializing directory
+    /// for device's data, saving device's module there and saving device info
+    /// in `device` table.
+    ///
+    /// It sets `device.init_state` to `DEVICE`
     pub async fn start_device_init<'f, F: AsyncRead + Unpin + ?Sized>(
         &self,
         name: String,
@@ -62,7 +68,7 @@ impl Service {
             data_dir: data_dir.clone(),
             init_state: db_model::DeviceInitState::Device,
         }
-        .set(&mut b);
+        .values(&mut b);
 
         self.repo.exec(b.insert()).await?;
 
@@ -73,6 +79,10 @@ impl Service {
         })
     }
 
+    /// `device_sensor_init` initializes device's sensors by creating tables in DB and
+    /// binding those tables to the device by inserting into `device_sensor` table.
+    ///
+    /// It sets `device.init_state` to `SENSORS`
     pub async fn device_sensor_init(
         &self,
         device_id: DeviceID,
@@ -108,7 +118,7 @@ impl Service {
                 device_id: device_id.get_raw(),
                 sensor_table_name: table_name,
             }
-            .set(&mut device_sensor_query);
+            .values(&mut device_sensor_query);
 
             for (key, data) in sensor.data_map.iter() {
                 // Validate sensor's data type name
@@ -141,16 +151,20 @@ impl Service {
         for table in tables {
             tx.create_table(table).await?;
         }
+
+        // Bind tables to device
         tx.exec(device_sensor_query.insert()).await?;
 
         // Update device's init_state
-        // TODO
-        // let mut b = sq::StatementBuilder::new();
-        // b.table(db_model::Device::table_name())
-        //     .column("init_state")
-        //     .set(vec![db_model::DeviceInitState::Sensors.into()]);
+        let mut b = sq::StatementBuilder::new();
+        b.table(db_model::Device::table_name())
+            .set(
+                "init_state".into(),
+                db_model::DeviceInitState::Sensors.into(),
+            )
+            .whereq(sq::eq("id".into(), device_id.get_raw()));
 
-        // tx.exec(b.u)
+        tx.exec(b.update()).await?;
 
         self.device_manager
             .device_sensor_init(&device_id, sensors)?;
@@ -160,6 +174,8 @@ impl Service {
         Ok(())
     }
 
+    /// `interrupt_device_init` interrupts device initialization if it's in `DEVICE` init_state.
+    /// It deletes data in DB (in `device` table) and from the disk (in <data>/device folder)
     pub async fn interrupt_device_init(&self, id: DeviceID) -> Result<(), Box<dyn Error>> {
         let mut tx = self.repo.tx().await?;
 
@@ -185,6 +201,10 @@ impl Service {
         tx.commit().await?;
 
         Ok(())
+    }
+
+    pub fn get_device_ids(&self) -> Vec<DeviceID> {
+        self.device_manager.get_device_ids()
     }
 
     async fn init_device_manager(

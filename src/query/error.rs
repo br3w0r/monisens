@@ -48,6 +48,16 @@ pub enum DeleteError {
 debug_from_display!(DeleteError);
 
 #[derive(Error)]
+pub enum UpdateError {
+    #[error("update statements must specify a table")]
+    NoTable,
+    #[error("update statements must have at least one set value")]
+    NoSets,
+}
+
+debug_from_display!(UpdateError);
+
+#[derive(Error)]
 pub enum ExprError {
     #[error("no args for expression")]
     NoArgs,

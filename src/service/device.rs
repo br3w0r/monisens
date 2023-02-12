@@ -314,6 +314,10 @@ impl DeviceManager {
         Ok(())
     }
 
+    pub fn get_device_ids(&self) -> Vec<DeviceID> {
+        self.device_map.read().unwrap().keys().copied().collect()
+    }
+
     fn inc_last_id(&self) -> DeviceID {
         let prev_last_id = self.last_id.fetch_add(1, Ordering::SeqCst);
 

@@ -90,52 +90,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("{:?}", res);
 
-    svc.interrupt_device_init(res.id).await?;
-
-    // svc.device_sensor_init(
-    //     res.id,
-    //     vec![
-    //         service::Sensor {
-    //             name: "test_sensor_1".into(),
-    //             data_map: HashMap::from([
-    //                 (
-    //                     "temp".into(),
-    //                     service::SensorData {
-    //                         name: "temp".into(),
-    //                         typ: service::SensorDataType::Float64,
-    //                     },
-    //                 ),
-    //                 (
-    //                     "timestamp".into(),
-    //                     service::SensorData {
-    //                         name: "timestamp".into(),
-    //                         typ: service::SensorDataType::Timestamp,
-    //                     },
-    //                 ),
-    //             ]),
-    //         },
-    //         service::Sensor {
-    //             name: "test_sensor_2".into(),
-    //             data_map: HashMap::from([
-    //                 (
-    //                     "timestamp".into(),
-    //                     service::SensorData {
-    //                         name: "timestamp".into(),
-    //                         typ: service::SensorDataType::Timestamp,
-    //                     },
-    //                 ),
-    //                 (
-    //                     "message".into(),
-    //                     service::SensorData {
-    //                         name: "message".into(),
-    //                         typ: service::SensorDataType::String,
-    //                     },
-    //                 ),
-    //             ]),
-    //         },
-    //     ],
-    // )
-    // .await?;
+    svc.device_sensor_init(
+        res.id,
+        vec![
+            service::Sensor {
+                name: "test_sensor_1".into(),
+                data_map: HashMap::from([
+                    (
+                        "temp".into(),
+                        service::SensorData {
+                            name: "temp".into(),
+                            typ: service::SensorDataType::Float64,
+                        },
+                    ),
+                    (
+                        "timestamp".into(),
+                        service::SensorData {
+                            name: "timestamp".into(),
+                            typ: service::SensorDataType::Timestamp,
+                        },
+                    ),
+                ]),
+            },
+            service::Sensor {
+                name: "test_sensor_2".into(),
+                data_map: HashMap::from([
+                    (
+                        "timestamp".into(),
+                        service::SensorData {
+                            name: "timestamp".into(),
+                            typ: service::SensorDataType::Timestamp,
+                        },
+                    ),
+                    (
+                        "message".into(),
+                        service::SensorData {
+                            name: "message".into(),
+                            typ: service::SensorDataType::String,
+                        },
+                    ),
+                ]),
+            },
+        ],
+    )
+    .await?;
 
     Ok(())
 }
