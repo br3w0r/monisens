@@ -17,6 +17,8 @@ pub use model::*;
 
 const BASE_NAME_MAX_LEN: usize = 255;
 
+
+#[derive(Clone)]
 pub struct Service {
     repo: repo::Repository,
     device_manager: device::DeviceManager,

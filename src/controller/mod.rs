@@ -5,7 +5,7 @@ mod model;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use tokio::io::AsyncRead;
@@ -18,9 +18,10 @@ pub use conf::*;
 pub use error::*;
 pub use model::*;
 
+#[derive(Clone)]
 pub struct Controller {
     svc: service::Service,
-    devices: Arc<RwLock<HashMap<i32, Arc<RwLock<Device>>>>>,
+    devices: Arc<RwLock<HashMap<i32, Arc<Mutex<Device>>>>>,
 }
 
 impl Controller {
@@ -29,14 +30,13 @@ impl Controller {
         let svc = service::Service::new(repo).await?;
 
         let device_init_datas = svc.get_init_data_all_devices();
-        let mut mods: HashMap<i32, Arc<RwLock<Device>>> =
-            HashMap::with_capacity(device_init_datas.len());
+        let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
             let m = module::Module::new(&data.module_file)?;
             mods.insert(
                 data.id.get_raw(),
-                Arc::new(RwLock::new(Device {
+                Arc::new(Mutex::new(Device {
                     id: data.id,
                     module: m,
                 })),
@@ -62,7 +62,7 @@ impl Controller {
 
             self.devices.write().unwrap().insert(
                 device_init_data.id.get_raw(),
-                Arc::new(RwLock::new(Device {
+                Arc::new(Mutex::new(Device {
                     id: device_init_data.id.clone(),
                     module: m,
                 })),
@@ -84,7 +84,7 @@ impl Controller {
 
     pub fn connect_device(&self, id: i32, conf: DeviceConnectConf) -> Result<(), Box<dyn Error>> {
         let device_lock = self.get_device(&id)?;
-        let mut device = device_lock.write().unwrap();
+        let mut device = device_lock.lock().unwrap();
 
         let mut conn_conf = conf.into();
 
@@ -95,7 +95,7 @@ impl Controller {
 
     pub fn obtain_device_conf_info(&self, id: i32) -> Result<DeviceConfInfo, Box<dyn Error>> {
         let device_lock = self.get_device(&id)?;
-        let mut device = device_lock.write().unwrap();
+        let mut device = device_lock.lock().unwrap();
 
         let device_conf_info = device.module.obtain_device_conf_info()?;
 
@@ -108,7 +108,7 @@ impl Controller {
         mut confs: Vec<DeviceConfEntry>,
     ) -> Result<(), Box<dyn Error>> {
         let device_lock = self.get_device(&id)?;
-        let mut device = device_lock.write().unwrap();
+        let mut device = device_lock.lock().unwrap();
 
         let mut device_conf = confs.drain(..).map(|v| v.into()).collect();
 
@@ -123,7 +123,7 @@ impl Controller {
 
     pub async fn interrupt_device_init(&self, id: i32) -> Result<(), Box<dyn Error>> {
         let device_lock = self.get_device(&id)?;
-        let device = device_lock.write().unwrap();
+        let device = device_lock.lock().unwrap();
 
         self.svc.interrupt_device_init(device.id).await?;
 
@@ -132,7 +132,7 @@ impl Controller {
         Ok(())
     }
 
-    fn get_device(&self, id: &i32) -> Result<Arc<RwLock<Device>>, ControllerError> {
+    fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {
         self.devices
             .read()
             .unwrap()

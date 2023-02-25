@@ -10,6 +10,7 @@ use sqlx::{
 use crate::query::integration::isqlx::{self as sq, ArgType};
 use crate::{query::sqlizer::Sqlizer, table::Table};
 
+#[derive(Clone)]
 pub struct Repository {
     pool: Pool<Postgres>,
 }

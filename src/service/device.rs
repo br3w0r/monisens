@@ -131,6 +131,7 @@ impl fmt::Display for DeviceID {
 }
 
 /// `DeviceManager` hosts data of all devices like names and data folders, sensors info etc.
+#[derive(Clone)]
 pub struct DeviceManager {
     last_id: Arc<AtomicI32>,
     device_map: Arc<RwLock<HashMap<DeviceID, Arc<RwLock<Device>>>>>,

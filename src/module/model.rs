@@ -107,6 +107,8 @@ impl Handle {
     }
 }
 
+unsafe impl Send for Handle {}
+
 pub extern "C" fn device_info_callback(obj: *mut c_void, info: *mut bg::DeviceConnectInfo) {
     device_connect_info(obj as _, info);
 }
