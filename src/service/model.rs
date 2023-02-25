@@ -4,5 +4,6 @@ use super::device;
 pub struct DeviceInitData {
     pub id: device::DeviceID,
     pub module_dir: String,
+    pub module_file: String,
     pub data_dir: String,
 }

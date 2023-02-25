@@ -12,7 +12,7 @@ use tokio::io::AsyncRead;
 
 use crate::{app, debug_from_display, table::FieldType};
 
-use super::db_model;
+use super::{db_model, model};
 
 #[cfg(target_os = "macos")]
 const MODULE_FILE_EXT: &str = ".dylib";
@@ -130,6 +130,7 @@ impl fmt::Display for DeviceID {
     }
 }
 
+/// `DeviceManager` hosts data of all devices like names and data folders, sensors info etc.
 pub struct DeviceManager {
     last_id: Arc<AtomicI32>,
     device_map: Arc<RwLock<HashMap<DeviceID, Arc<RwLock<Device>>>>>,
@@ -166,7 +167,7 @@ impl DeviceManager {
         }
 
         // Init all sensors
-        let mut sensors_res: HashMap<String, Sensor> = HashMap::new();
+        let mut sensors_res: HashMap<String, Sensor> = HashMap::with_capacity(device_sensors.len());
 
         for sensor_type in sensor_types {
             let sensor = sensors_res
@@ -236,7 +237,7 @@ impl DeviceManager {
         &self,
         name: String,
         module_file: &'f mut F,
-    ) -> Result<(DeviceID, String, String), Box<dyn Error>>
+    ) -> Result<model::DeviceInitData, Box<dyn Error>>
     where
         F: AsyncRead + Unpin + ?Sized,
     {
@@ -251,7 +252,7 @@ impl DeviceManager {
         let data_dir = dir_name.clone() + "data/";
         self.create_data_dir(&data_dir).await?;
 
-        let full_module_path = (*self.data_dir).clone() + &module_dir + "lib" + MODULE_FILE_EXT;
+        let full_module_path = self.full_module_file_path(&module_dir);
         create_file(&full_module_path, module_file).await?;
 
         let device = Device {
@@ -263,15 +264,12 @@ impl DeviceManager {
 
         (*self.device_map.write().unwrap()).insert(id, Arc::new(RwLock::new(device)));
 
-        Ok((id, module_dir, data_dir))
-    }
-
-    pub fn get_device(&self, id: &DeviceID) -> Result<Arc<RwLock<Device>>, DeviceError> {
-        if let Some(device) = self.device_map.read().unwrap().get(id) {
-            Ok(device.clone())
-        } else {
-            Err(DeviceError::DeviceNotFound(id.clone()))
-        }
+        Ok(model::DeviceInitData {
+            id,
+            module_file: full_module_path,
+            data_dir,
+            module_dir,
+        })
     }
 
     pub fn device_sensor_init(
@@ -318,14 +316,47 @@ impl DeviceManager {
         self.device_map.read().unwrap().keys().copied().collect()
     }
 
+    pub fn get_init_data_all_devices(&self) -> Vec<model::DeviceInitData> {
+        let device_map = self.device_map.read().unwrap();
+        let mut res = Vec::with_capacity(device_map.len());
+        for (id, data_handler) in device_map.iter() {
+            let data = data_handler.read().unwrap();
+
+            res.push(model::DeviceInitData {
+                id: id.clone(),
+                module_dir: data.module_dir.clone(),
+                data_dir: self.full_data_dir(&data.data_dir),
+                module_file: self.full_module_file_path(&data.module_dir),
+            })
+        }
+
+        res
+    }
+
     fn inc_last_id(&self) -> DeviceID {
         let prev_last_id = self.last_id.fetch_add(1, Ordering::SeqCst);
 
         DeviceID(prev_last_id + 1)
     }
 
+    fn get_device(&self, id: &DeviceID) -> Result<Arc<RwLock<Device>>, DeviceError> {
+        if let Some(device) = self.device_map.read().unwrap().get(id) {
+            Ok(device.clone())
+        } else {
+            Err(DeviceError::DeviceNotFound(id.clone()))
+        }
+    }
+
     async fn create_data_dir(&self, rel_path: &str) -> io::Result<()> {
-        fs::create_dir((*self.data_dir).clone() + rel_path).await
+        fs::create_dir(self.full_data_dir(rel_path)).await
+    }
+
+    fn full_data_dir(&self, data_dir: &str) -> String {
+        (*self.data_dir).clone() + data_dir
+    }
+
+    fn full_module_file_path(&self, module_dir: &str) -> String {
+        (*self.data_dir).clone() + &module_dir + "lib" + MODULE_FILE_EXT
     }
 }
 

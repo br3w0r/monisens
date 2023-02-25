@@ -8,7 +8,7 @@ use std::ptr;
 pub const VERSION: u8 = 1;
 
 #[derive(Debug)]
-enum ConnParamType {
+pub enum ConnParamType {
     Bool,
     Int,
     Float,
@@ -27,14 +27,14 @@ impl From<bg::ConnParamType> for ConnParamType {
 }
 
 #[derive(Debug)]
-pub struct ConnParamConf {
-    name: String,
-    typ: ConnParamType,
+pub struct ConnParamInfo {
+    pub name: String,
+    pub typ: ConnParamType,
 }
 
-pub type DeficeConfRec = Result<Vec<ConnParamConf>, ModuleError>;
+pub type DeficeInfoRec = Result<Vec<ConnParamInfo>, ModuleError>;
 
-fn device_connect_info(res: *mut DeficeConfRec, info: *const bg::DeviceConnectInfo) {
+fn device_connect_info(res: *mut DeficeInfoRec, info: *const bg::DeviceConnectInfo) {
     if info.is_null() {
         unsafe {
             *res = Err(ModuleError::InvalidPointer("device_connect_info"));
@@ -52,7 +52,7 @@ fn device_connect_info(res: *mut DeficeConfRec, info: *const bg::DeviceConnectIn
     }
 
     let len = unsafe { (*info).connection_params_len as usize };
-    let mut device_connect_info: Vec<ConnParamConf> = Vec::with_capacity(len);
+    let mut device_connect_info: Vec<ConnParamInfo> = Vec::with_capacity(len);
 
     let s = unsafe { std::slice::from_raw_parts((*info).connection_params, len) };
 
@@ -74,7 +74,7 @@ fn device_connect_info(res: *mut DeficeConfRec, info: *const bg::DeviceConnectIn
                 return;
             }
             Ok(s) => {
-                device_connect_info.push(ConnParamConf {
+                device_connect_info.push(ConnParamInfo {
                     name: s.to_string(),
                     typ: i.typ.into(),
                 });
@@ -119,7 +119,7 @@ pub enum ConnParamValType {
 }
 
 impl ConnParamValType {
-    pub fn parse_cstr(&self) -> Box<CString> {
+    pub fn parse_cstr(&self) -> CString {
         let str = match self {
             ConnParamValType::Bool(val) => val.to_string(),
             ConnParamValType::Int(val) => val.to_string(),
@@ -127,13 +127,13 @@ impl ConnParamValType {
             ConnParamValType::String(val) => val.clone(),
         };
 
-        Box::new(CString::new(str).unwrap())
+        CString::new(str).unwrap()
     }
 }
 
 pub struct ConnParamValue {
     val: ConnParamValType,
-    val_parsed: Option<Box<CString>>,
+    val_parsed: Option<CString>,
 }
 
 impl ConnParamValue {
@@ -144,7 +144,7 @@ impl ConnParamValue {
         }
     }
 
-    pub fn parsed(&mut self) -> &Box<CString> {
+    pub fn parsed(&mut self) -> &CString {
         if let Some(ref val) = self.val_parsed {
             return val;
         }
@@ -256,66 +256,66 @@ pub enum DeviceConfInfoEntryType {
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryString {
-    required: bool,
-    default: Option<String>,
+    pub required: bool,
+    pub default: Option<String>,
 
-    min_len: Option<i32>,
-    max_len: Option<i32>,
-    match_regex: Option<String>,
+    pub min_len: Option<i32>,
+    pub max_len: Option<i32>,
+    pub match_regex: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryInt {
-    required: bool,
-    default: Option<i32>,
+    pub required: bool,
+    pub default: Option<i32>,
 
-    lt: Option<i32>,
-    gt: Option<i32>,
-    neq: Option<i32>,
+    pub lt: Option<i32>,
+    pub gt: Option<i32>,
+    pub neq: Option<i32>,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryIntRange {
-    required: bool,
-    def_from: Option<i32>,
-    def_to: Option<i32>,
+    pub required: bool,
+    pub def_from: Option<i32>,
+    pub def_to: Option<i32>,
 
-    min: i32,
-    max: i32,
+    pub min: i32,
+    pub max: i32,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryFloat {
-    required: bool,
-    default: Option<f32>,
+    pub required: bool,
+    pub default: Option<f32>,
 
-    lt: Option<f32>,
-    gt: Option<f32>,
-    neq: Option<f32>,
+    pub lt: Option<f32>,
+    pub gt: Option<f32>,
+    pub neq: Option<f32>,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryFloatRange {
-    required: bool,
-    def_from: Option<f32>,
-    def_to: Option<f32>,
+    pub required: bool,
+    pub def_from: Option<f32>,
+    pub def_to: Option<f32>,
 
-    min: f32,
-    max: f32,
+    pub min: f32,
+    pub max: f32,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryJSON {
-    required: bool,
-    default: Option<String>,
+    pub required: bool,
+    pub default: Option<String>,
 }
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntryChoiceList {
-    required: bool,
-    default: Option<i32>,
+    pub required: bool,
+    pub default: Option<i32>,
 
-    choices: Vec<String>,
+    pub choices: Vec<String>,
 }
 
 #[derive(Debug)]

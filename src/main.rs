@@ -1,4 +1,7 @@
+use std::{env, error::Error};
+
 mod app;
+mod controller;
 mod logger;
 mod module;
 mod query;
@@ -7,133 +10,61 @@ mod service;
 mod table;
 mod tool;
 
-use sqlx::postgres::PgPoolOptions;
-use sqlx::FromRow;
-use std::collections::HashMap;
-use std::error::Error;
-use std::{env, ffi::CString};
-
-use query::integration::isqlx as sq;
-use query::sqlizer::Sqlizer;
-use table::{Field, FieldOption, Table};
-
-#[derive(FromRow, Debug)]
-struct Test {
-    id: i64,
-    #[sqlx(default)]
-    name: String,
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // let args: Vec<String> = env::args().collect();
+    let conf = controller::Conf::new()
+        .with_repo_dsn("postgres://postgres:pgpass@localhost:5433/monisens".into());
 
-    // if args.len() < 2 {
-    //     panic!("args.len() < 2");
-    // }
+    let ctrl = controller::Controller::new(conf).await?;
 
-    // let mut m = module::Module::new(&args[1])?;
-    // let info = m.obtain_device_info()?;
-
-    // println!("{:?}", info);
-
-    // let mut conf = module::DeviceConnectConf::new(vec![
-    //     module::ConnParam::new(
-    //         "IP".into(),
-    //         module::ConnParamValType::String("127.0.0.1".into()),
-    //     ),
-    //     module::ConnParam::new("Port".into(), module::ConnParamValType::Int(8080)),
-    //     module::ConnParam::new(
-    //         "Message".into(),
-    //         module::ConnParamValType::String("Hello, world!".into()),
-    //     ),
-    // ]);
-
-    // m.connect_device(&mut conf)?;
-
-    // let conf_info = m.obtain_device_conf_info()?;
-
-    // println!("{:?}", conf_info);
-
-    // let mut conf = vec![
-    //     module::DeviceConfEntry::new(1, Some(module::DeviceConfType::Int(5))),
-    //     module::DeviceConfEntry::new(2, Some(module::DeviceConfType::ChoiceList(2))),
-    //     module::DeviceConfEntry::new(
-    //         3,
-    //         Some(module::DeviceConfType::String(
-    //             CString::new("hello").unwrap(),
-    //         )),
-    //     ),
-    // ];
-
-    // m.configure_device(&mut conf)?;
-
-    // let sensor_infos = m.obtain_sensor_type_infos()?;
-
-    // println!("{:?}", sensor_infos);
-
-    let repo = repo::Repository::new("postgres://postgres:pgpass@localhost:5433/monisens").await?;
-
-    let svc = service::Service::new(repo).await?;
-
+    // For example: 1st argument must be a full path to a module
     let args: Vec<String> = env::args().collect();
-
     if args.len() < 2 {
         panic!("args.len() < 2");
     }
-
     let mut file = tokio::fs::File::open(&args[1]).await?;
 
-    let res = svc
+    let init_data = ctrl
         .start_device_init("test_device".into(), &mut file)
         .await?;
+    println!("{:?}", init_data);
 
-    println!("{:?}", res);
+    let conf = vec![
+        controller::ConnParam {
+            name: "IP".into(),
+            value: controller::ConnParamValType::String("127.0.0.1".into()),
+        },
+        controller::ConnParam {
+            name: "Port".into(),
+            value: controller::ConnParamValType::Int(8080),
+        },
+        controller::ConnParam {
+            name: "Message".into(),
+            value: controller::ConnParamValType::String("Hello, world!".into()),
+        },
+    ];
 
-    svc.device_sensor_init(
-        res.id,
-        vec![
-            service::Sensor {
-                name: "test_sensor_1".into(),
-                data_map: HashMap::from([
-                    (
-                        "temp".into(),
-                        service::SensorData {
-                            name: "temp".into(),
-                            typ: service::SensorDataType::Float64,
-                        },
-                    ),
-                    (
-                        "timestamp".into(),
-                        service::SensorData {
-                            name: "timestamp".into(),
-                            typ: service::SensorDataType::Timestamp,
-                        },
-                    ),
-                ]),
-            },
-            service::Sensor {
-                name: "test_sensor_2".into(),
-                data_map: HashMap::from([
-                    (
-                        "timestamp".into(),
-                        service::SensorData {
-                            name: "timestamp".into(),
-                            typ: service::SensorDataType::Timestamp,
-                        },
-                    ),
-                    (
-                        "message".into(),
-                        service::SensorData {
-                            name: "message".into(),
-                            typ: service::SensorDataType::String,
-                        },
-                    ),
-                ]),
-            },
-        ],
-    )
-    .await?;
+    ctrl.connect_device(init_data.id, conf)?;
+
+    let conf_info = ctrl.obtain_device_conf_info(init_data.id);
+    println!("{:?}", conf_info);
+
+    let conf = vec![
+        controller::DeviceConfEntry {
+            id: 1,
+            data: Some(controller::DeviceConfType::Int(5)),
+        },
+        controller::DeviceConfEntry {
+            id: 1,
+            data: Some(controller::DeviceConfType::ChoiceList(2)),
+        },
+        controller::DeviceConfEntry {
+            id: 3,
+            data: Some(controller::DeviceConfType::String("hello".into())),
+        },
+    ];
+
+    ctrl.configure_device(init_data.id, conf).await?;
 
     Ok(())
 }

@@ -7,14 +7,14 @@ use libloading::{self, Symbol};
 use std::error::Error;
 
 use bindings_gen as bg;
-use error::ModuleError;
 use model::*;
 
-use self::error::ComError;
+pub use self::error::*;
 
 pub use model::{
-    ConnParam, ConnParamValType, DeviceConfEntry, DeviceConfInfo, DeviceConfType,
-    DeviceConnectConf, SensorTypeInfo,
+    ConnParam, ConnParamInfo, ConnParamType, ConnParamValType, DeviceConfEntry, DeviceConfInfo,
+    DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType, DeviceConnectConf,
+    SensorDataType, SensorTypeInfo,
 };
 
 pub struct Module {
@@ -64,12 +64,12 @@ impl Module {
         }
     }
 
-    pub fn obtain_device_info(&mut self) -> DeficeConfRec {
-        let mut conf_rec: DeficeConfRec = Ok(Vec::new());
+    pub fn obtain_device_info(&mut self) -> DeficeInfoRec {
+        let mut conf_rec: DeficeInfoRec = Ok(Vec::new());
         unsafe {
             self.funcs.obtain_device_info.unwrap()(
                 self.handle.handler(),
-                &mut conf_rec as *mut DeficeConfRec as *mut c_void,
+                &mut conf_rec as *mut DeficeInfoRec as *mut c_void,
                 Some(device_info_callback),
             )
         };

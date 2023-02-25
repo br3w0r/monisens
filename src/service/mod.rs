@@ -7,7 +7,6 @@ use std::collections::HashSet;
 use std::error::Error;
 use tokio::io::AsyncRead;
 
-use crate::module::DeviceConfType;
 use crate::query::integration::isqlx as sq;
 use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
 use crate::{repo, table, tool::validation};
@@ -52,7 +51,7 @@ impl Service {
             )));
         }
 
-        let (id, module_dir, data_dir) = self
+        let res = self
             .device_manager
             .start_device_init(name.clone(), module_file)
             .await?;
@@ -62,21 +61,17 @@ impl Service {
             .columns(db_model::Device::columns());
 
         db_model::Device {
-            id: id.into(),
+            id: res.id.into(),
             name,
-            module_dir: module_dir.clone(),
-            data_dir: data_dir.clone(),
+            module_dir: res.module_dir.clone(),
+            data_dir: res.data_dir.clone(),
             init_state: db_model::DeviceInitState::Device,
         }
         .values(&mut b);
 
         self.repo.exec(b.insert()).await?;
 
-        Ok(DeviceInitData {
-            id,
-            module_dir,
-            data_dir,
-        })
+        Ok(res)
     }
 
     /// `device_sensor_init` initializes device's sensors by creating tables in DB and
@@ -205,6 +200,10 @@ impl Service {
 
     pub fn get_device_ids(&self) -> Vec<DeviceID> {
         self.device_manager.get_device_ids()
+    }
+
+    pub fn get_init_data_all_devices(&self) -> Vec<DeviceInitData> {
+        self.device_manager.get_init_data_all_devices()
     }
 
     async fn init_device_manager(
