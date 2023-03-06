@@ -15,4 +15,8 @@ lazy_static = "1"
 thiserror = "1"
 libc = "0.2.132"
 libloading = "0.7.3"
-actix-web = "4"
+actix-web = "4.3.1"
+actix-multipart = "0.6.0"
+serde = "1"
+utoipa = { version = "3", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "3", features = ["actix-web"] }
