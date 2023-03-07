@@ -181,8 +181,8 @@ impl Service {
             .column("init_state")
             .whereq(sq::eq("id".into(), id.get_raw()));
 
-        let init_state: (db_model::DeviceInitState,) = tx.get(b.select()).await?;
-        if init_state.0 != db_model::DeviceInitState::Device {
+        let (init_state,): (db_model::DeviceInitState,) = tx.get(b.select()).await?;
+        if init_state != db_model::DeviceInitState::Device {
             return Err(Box::new(ServiceError::DeviceAlreadyInitialized(id)));
         }
 

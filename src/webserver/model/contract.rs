@@ -1,0 +1,332 @@
+use crate::controller;
+use actix_multipart::form::{bytes::Bytes, tempfile::TempFile, text::Text, MultipartForm};
+use serde::{Deserialize, Serialize};
+use utoipa::{ToResponse, ToSchema};
+
+#[derive(Debug, MultipartForm, ToSchema)]
+pub struct TestUploadForm {
+    #[schema(value_type = String, format = Binary)]
+    #[multipart(rename = "file")]
+    pub file: Bytes,
+    #[schema(value_type = String, format = Byte)]
+    pub name: Text<String>,
+}
+
+#[derive(Debug, MultipartForm, ToSchema)]
+pub struct DeviceStartInitRequest {
+    #[schema(value_type = String, format = Byte)]
+    pub device_name: Text<String>,
+    #[schema(value_type = String, format = Binary)]
+    pub module_file: TempFile,
+}
+
+#[derive(Serialize, ToSchema)]
+pub struct DeviceStartInitResponse {
+    pub device_id: i32,
+    pub conn_params: Vec<ConnParamConf>,
+}
+
+impl From<controller::DeviceInitData> for DeviceStartInitResponse {
+    fn from(mut value: controller::DeviceInitData) -> Self {
+        Self {
+            device_id: value.id,
+            conn_params: value.conn_params.drain(..).map(|v| v.into()).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ConnParamConf {
+    pub name: String,
+    pub typ: ConnParamType,
+}
+
+impl From<controller::ConnParamConf> for ConnParamConf {
+    fn from(value: controller::ConnParamConf) -> Self {
+        Self {
+            name: value.name,
+            typ: value.typ.into(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub enum ConnParamType {
+    Bool,
+    Int,
+    Float,
+    String,
+}
+
+impl From<controller::ConnParamType> for ConnParamType {
+    fn from(value: controller::ConnParamType) -> Self {
+        match value {
+            controller::ConnParamType::Bool => ConnParamType::Bool,
+            controller::ConnParamType::Int => ConnParamType::Int,
+            controller::ConnParamType::Float => ConnParamType::Float,
+            controller::ConnParamType::String => ConnParamType::String,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ConnectDeviceRequest {
+    pub device_id: i32,
+    pub connect_conf: Vec<ConnParam>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ConnParam {
+    pub name: String,
+    pub value: ConnParamValType,
+}
+
+impl From<ConnParam> for controller::ConnParam {
+    fn from(value: ConnParam) -> Self {
+        Self {
+            name: value.name,
+            value: value.value.into(),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub enum ConnParamValType {
+    Bool(bool),
+    Int(i32),
+    Float(f32),
+    String(String),
+}
+
+impl From<ConnParamValType> for controller::ConnParamValType {
+    fn from(value: ConnParamValType) -> Self {
+        match value {
+            ConnParamValType::Bool(v) => controller::ConnParamValType::Bool(v),
+            ConnParamValType::Int(v) => controller::ConnParamValType::Int(v),
+            ConnParamValType::Float(v) => controller::ConnParamValType::Float(v),
+            ConnParamValType::String(v) => controller::ConnParamValType::String(v),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ObtainDeviceConfInfoRequest {
+    pub device_id: i32,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ObtainDeviceConfInfoResponse {
+    pub device_conf_info: Vec<DeviceConfInfoEntry>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntry {
+    pub id: i32,
+    pub name: String,
+    pub data: DeviceConfInfoEntryType,
+}
+
+impl From<controller::DeviceConfInfoEntry> for DeviceConfInfoEntry {
+    fn from(value: controller::DeviceConfInfoEntry) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            data: value.data.into(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub enum DeviceConfInfoEntryType {
+    String(DeviceConfInfoEntryString),
+    Int(DeviceConfInfoEntryInt),
+    IntRange(DeviceConfInfoEntryIntRange),
+    Float(DeviceConfInfoEntryFloat),
+    FloatRange(DeviceConfInfoEntryFloatRange),
+    JSON(DeviceConfInfoEntryJSON),
+    ChoiceList(DeviceConfInfoEntryChoiceList),
+    Section(Vec<DeviceConfInfoEntry>),
+}
+
+impl From<controller::DeviceConfInfoEntryType> for DeviceConfInfoEntryType {
+    fn from(value: controller::DeviceConfInfoEntryType) -> Self {
+        match value {
+            controller::DeviceConfInfoEntryType::Section(mut v) => {
+                DeviceConfInfoEntryType::Section(v.drain(..).map(|vv| vv.into()).collect())
+            }
+            controller::DeviceConfInfoEntryType::String(v) => {
+                DeviceConfInfoEntryType::String(DeviceConfInfoEntryString {
+                    required: v.required,
+                    default: v.default,
+                    min_len: v.min_len,
+                    max_len: v.max_len,
+                    match_regex: v.match_regex,
+                })
+            }
+            controller::DeviceConfInfoEntryType::Int(v) => {
+                DeviceConfInfoEntryType::Int(DeviceConfInfoEntryInt {
+                    required: v.required,
+                    default: v.default,
+                    lt: v.lt,
+                    gt: v.gt,
+                    neq: v.neq,
+                })
+            }
+            controller::DeviceConfInfoEntryType::IntRange(v) => {
+                DeviceConfInfoEntryType::IntRange(DeviceConfInfoEntryIntRange {
+                    required: v.required,
+                    def_from: v.def_from,
+                    def_to: v.def_to,
+                    min: v.min,
+                    max: v.max,
+                })
+            }
+            controller::DeviceConfInfoEntryType::Float(v) => {
+                DeviceConfInfoEntryType::Float(DeviceConfInfoEntryFloat {
+                    required: v.required,
+                    default: v.default,
+                    lt: v.lt,
+                    gt: v.gt,
+                    neq: v.neq,
+                })
+            }
+            controller::DeviceConfInfoEntryType::FloatRange(v) => {
+                DeviceConfInfoEntryType::FloatRange(DeviceConfInfoEntryFloatRange {
+                    required: v.required,
+                    def_from: v.def_from,
+                    def_to: v.def_to,
+                    min: v.min,
+                    max: v.max,
+                })
+            }
+            controller::DeviceConfInfoEntryType::JSON(v) => {
+                DeviceConfInfoEntryType::JSON(DeviceConfInfoEntryJSON {
+                    required: v.required,
+                    default: v.default,
+                })
+            }
+            controller::DeviceConfInfoEntryType::ChoiceList(v) => {
+                DeviceConfInfoEntryType::ChoiceList(DeviceConfInfoEntryChoiceList {
+                    required: v.required,
+                    default: v.default,
+                    choices: v.choices,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryString {
+    pub required: bool,
+    pub default: Option<String>,
+
+    pub min_len: Option<i32>,
+    pub max_len: Option<i32>,
+    pub match_regex: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryInt {
+    pub required: bool,
+    pub default: Option<i32>,
+
+    pub lt: Option<i32>,
+    pub gt: Option<i32>,
+    pub neq: Option<i32>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryIntRange {
+    pub required: bool,
+    pub def_from: Option<i32>,
+    pub def_to: Option<i32>,
+
+    pub min: i32,
+    pub max: i32,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryFloat {
+    pub required: bool,
+    pub default: Option<f32>,
+
+    pub lt: Option<f32>,
+    pub gt: Option<f32>,
+    pub neq: Option<f32>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryFloatRange {
+    pub required: bool,
+    pub def_from: Option<f32>,
+    pub def_to: Option<f32>,
+
+    pub min: f32,
+    pub max: f32,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryJSON {
+    pub required: bool,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceConfInfoEntryChoiceList {
+    pub required: bool,
+    pub default: Option<i32>,
+
+    pub choices: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ConfigureDeviceRequest {
+    pub device_id: i32,
+    pub confs: Vec<DeviceConfEntry>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DeviceConfEntry {
+    pub id: i32,
+    pub data: Option<DeviceConfType>,
+}
+
+impl From<DeviceConfEntry> for controller::DeviceConfEntry {
+    fn from(value: DeviceConfEntry) -> Self {
+        controller::DeviceConfEntry {
+            id: value.id,
+            data: value.data.map(|v| v.into()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub enum DeviceConfType {
+    String(String),
+    Int(i32),
+    IntRange([i32; 2]),
+    Float(f32),
+    FloatRange([f32; 2]),
+    JSON(String),
+    ChoiceList(i32),
+}
+
+impl From<DeviceConfType> for controller::DeviceConfType {
+    fn from(value: DeviceConfType) -> Self {
+        match value {
+            DeviceConfType::String(v) => controller::DeviceConfType::String(v),
+            DeviceConfType::Int(v) => controller::DeviceConfType::Int(v),
+            DeviceConfType::IntRange(v) => controller::DeviceConfType::IntRange(v),
+            DeviceConfType::Float(v) => controller::DeviceConfType::Float(v),
+            DeviceConfType::FloatRange(v) => controller::DeviceConfType::FloatRange(v),
+            DeviceConfType::JSON(v) => controller::DeviceConfType::JSON(v),
+            DeviceConfType::ChoiceList(v) => controller::DeviceConfType::ChoiceList(v),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct InterruptDeviceInitRequest {
+    pub device_id: i32,
+}
