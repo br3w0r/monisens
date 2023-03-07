@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use crate::{module, service};
+use crate::module;
 
 pub mod internal {
     use crate::{module, service};

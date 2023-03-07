@@ -1,15 +1,8 @@
 use std::error::Error;
 
 use actix_multipart::form::MultipartForm;
-use actix_web::{
-    get, post,
-    web::{self, BufMut},
-    HttpRequest, HttpResponse, Responder, Result,
-};
-use tokio::{
-    fs,
-    io::{self, AsyncWriteExt},
-};
+use actix_web::{get, post, web, HttpResponse, Responder, Result};
+use tokio::{fs, io::AsyncWriteExt};
 
 use crate::webserver::model::{contract, State};
 
@@ -20,7 +13,7 @@ use crate::webserver::model::{contract, State};
         )
     )]
 #[get("/")]
-pub async fn index(data: web::Data<State>) -> String {
+pub async fn index() -> String {
     "Hello, world!".into()
 }
 

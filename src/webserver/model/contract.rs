@@ -1,7 +1,7 @@
 use crate::controller;
 use actix_multipart::form::{bytes::Bytes, tempfile::TempFile, text::Text, MultipartForm};
 use serde::{Deserialize, Serialize};
-use utoipa::{ToResponse, ToSchema};
+use utoipa::ToSchema;
 
 #[derive(Debug, MultipartForm, ToSchema)]
 pub struct TestUploadForm {

@@ -3,7 +3,7 @@ mod error;
 mod model;
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     error::Error,
     sync::{Arc, Mutex, RwLock},
 };
@@ -147,7 +147,7 @@ fn service_sensor_from_module(
 ) -> Vec<service::Sensor> {
     sensor_type_infos
         .drain(..)
-        .map(|mut sensor| {
+        .map(|sensor| {
             let mut data_map = HashMap::with_capacity(sensor.data_type_infos.len());
 
             for data_type_info in sensor.data_type_infos {
