@@ -1,48 +1,14 @@
-use std::error::Error;
-
 use actix_multipart::form::MultipartForm;
-use actix_web::{get, post, web, HttpResponse, Responder, Result};
-use tokio::{fs, io::AsyncWriteExt};
+use actix_web::{post, web, HttpResponse, Responder, Result};
 
 use crate::webserver::model::{contract, State};
-
-#[utoipa::path(
-        context_path = "/service",
-        responses(
-            (status = 200, description = "Hello, world!", body = String)
-        )
-    )]
-#[get("/")]
-pub async fn index() -> String {
-    "Hello, world!".into()
-}
-
-#[utoipa::path(
-        context_path = "/service",
-        responses(
-            (status = 200, description = "Ok response")
-        ),
-        request_body(content = TestUploadForm, content_type = "multipart/form-data")
-    )]
-#[post("/test-save-files")]
-pub async fn test_save_files(
-    MultipartForm(form): MultipartForm<contract::TestUploadForm>,
-) -> Result<impl Responder, Box<dyn Error>> {
-    let path = format!("./{}.txt", form.name.as_str());
-    let mut file = fs::File::create(path).await?;
-
-    let mut bytes = &form.file.data[..];
-
-    file.write_all(&mut bytes).await?;
-
-    Ok(HttpResponse::Ok())
-}
 
 #[utoipa::path(
     context_path = "/service",
     request_body(content = DeviceStartInitRequest, content_type = "multipart/form-data"),
     responses(
-        (status = 200, description = "Ok response with device id and connection params", body = DeviceStartInitResponse)
+        (status = 200, description = "Ok response with device id and connection params", body = DeviceStartInitResponse),
+        (status = 500, description = "Server error response"),
     ),
 )]
 #[post("/start-device-init")]
@@ -64,7 +30,8 @@ pub async fn start_device_init(
     context_path = "/service",
     request_body(content = ConnectDeviceRequest, content_type = "application/json"),
     responses(
-        (status = 200, description = "Ok response")
+        (status = 200, description = "Ok response"),
+        (status = 500, description = "Server error response"),
     ),
 )]
 #[post("/connect-device")]
@@ -84,7 +51,8 @@ pub async fn connect_device(
     context_path = "/service",
     request_body(content = ObtainDeviceConfInfoRequest, content_type = "application/json"),
     responses(
-        (status = 200, description = "Ok response with device conf info", body = ObtainDeviceConfInfoResponse)
+        (status = 200, description = "Ok response with device conf info", body = ObtainDeviceConfInfoResponse),
+        (status = 500, description = "Server error response"),
     ),
 )]
 #[post("/obtain-device-conf-info")]
@@ -103,7 +71,8 @@ pub async fn obtain_device_conf_info(
     context_path = "/service",
     request_body(content = ConfigureDeviceRequest, content_type = "application/json"),
     responses(
-        (status = 200, description = "Ok response")
+        (status = 200, description = "Ok response"),
+        (status = 500, description = "Server error response"),
     ),
 )]
 #[post("/configure-device")]
@@ -125,7 +94,8 @@ pub async fn configure_device(
     context_path = "/service",
     request_body(content = InterruptDeviceInitRequest, content_type = "application/json"),
     responses(
-        (status = 200, description = "Ok response")
+        (status = 200, description = "Ok response"),
+        (status = 500, description = "Server error response"),
     ),
 )]
 #[post("/interrupt-device-init")]
