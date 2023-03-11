@@ -5,6 +5,7 @@ mod model;
 
 use std::error::Error;
 
+use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -51,7 +52,11 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
     struct ApiDoc;
 
     HttpServer::new(move || {
+        // TODO: replace with conditional code for testing
+        let cors = Cors::permissive();
+
         App::new()
+            .wrap(cors)
             .service(
                 web::scope("/service")
                     .app_data(web::Data::new(State { ctrl: ctrl.clone() }))
