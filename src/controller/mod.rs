@@ -1,6 +1,7 @@
 mod conf;
 mod error;
 mod model;
+mod msg;
 
 use std::{
     collections::HashMap,
@@ -8,7 +9,7 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
-use tokio::io::AsyncRead;
+use tokio::{io::AsyncRead, runtime::Handle};
 
 use crate::{module, repo, service};
 
@@ -21,11 +22,12 @@ pub use model::*;
 #[derive(Clone)]
 pub struct Controller {
     svc: service::Service,
+    tokio_handle: Handle,
     devices: Arc<RwLock<HashMap<i32, Arc<Mutex<Device>>>>>,
 }
 
 impl Controller {
-    pub async fn new(conf: Conf) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(conf: Conf, tokio_handle: Handle) -> Result<Self, Box<dyn Error>> {
         let repo = repo::Repository::new(conf.get_repo_dsn()).await?;
         let svc = service::Service::new(repo).await?;
 
@@ -33,18 +35,31 @@ impl Controller {
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let m = module::Module::new(&data.module_file)?;
+            let mut m = module::Module::new(&data.module_file)?;
+
+            let msg_handler = if data.init_state == service::DeviceInitState::Sensors {
+                let msg_handler = msg::Handler::new(data.id, svc.clone(), tokio_handle.clone());
+
+                m.start(msg_handler.clone())?;
+
+                Some(msg_handler)
+            } else {
+                None
+            };
+
             mods.insert(
                 data.id.get_raw(),
                 Arc::new(Mutex::new(Device {
                     id: data.id,
                     module: m,
+                    msg_handler: msg_handler,
                 })),
             );
         }
 
         Ok(Self {
             svc,
+            tokio_handle,
             devices: Arc::new(RwLock::new(mods)),
         })
     }
@@ -65,6 +80,7 @@ impl Controller {
                 Arc::new(Mutex::new(Device {
                     id: device_init_data.id.clone(),
                     module: m,
+                    msg_handler: None,
                 })),
             );
 
@@ -107,16 +123,21 @@ impl Controller {
         id: i32,
         mut confs: Vec<DeviceConfEntry>,
     ) -> Result<(), Box<dyn Error>> {
-        let device_lock = self.get_device(&id)?;
-        let mut device = device_lock.lock().unwrap();
+        {
+            let device_lock = self.get_device(&id)?;
+            let mut device = device_lock.lock().unwrap();
 
-        let mut device_conf = confs.drain(..).map(|v| v.into()).collect();
+            let mut device_conf = confs.drain(..).map(|v| v.into()).collect();
 
-        device.module.configure_device(&mut device_conf)?;
+            device.module.configure_device(&mut device_conf)?;
 
-        let sensor = service_sensor_from_module(device.module.obtain_sensor_type_infos()?);
+            let sensor = service_sensor_from_module(device.module.obtain_sensor_type_infos()?);
 
-        self.svc.device_sensor_init(device.id, sensor).await?;
+            self.svc.device_sensor_init(device.id, sensor).await?;
+        }
+
+        // Start receiving data from device's sensors
+        self.start_device(id)?;
 
         Ok(())
     }
@@ -130,6 +151,63 @@ impl Controller {
         self.devices.write().unwrap().remove(&id);
 
         Ok(())
+    }
+
+    fn start_device(&self, id: i32) -> Result<(), Box<dyn Error>> {
+        let device_lock = self.get_device(&id)?;
+        let mut device = device_lock.lock().unwrap();
+
+        // Get device's handler (with lazy loading)
+        let msg_handler = if let Some(ref msg_handler) = device.msg_handler {
+            msg_handler.clone()
+        } else {
+            let msg_handler =
+                msg::Handler::new(device.id, self.svc.clone(), self.tokio_handle.clone());
+            device.msg_handler = Some(msg_handler.clone());
+
+            msg_handler
+        };
+
+        device.module.start(msg_handler.clone())?;
+
+        Ok(())
+    }
+
+    fn stop_device(&self, id: i32) -> Result<(), Box<dyn Error>> {
+        let device_lock = self.get_device(&id)?;
+        let mut device = device_lock.lock().unwrap();
+
+        device.module.stop()?;
+
+        Ok(())
+    }
+
+    pub async fn get_sensor_data(
+        &self,
+        data: GetSensorDataPayload,
+    ) -> Result<GetSensorDataResult, Box<dyn Error>> {
+        if data.fields.len() == 0 {
+            return Err(ControllerError::IncorrectPayload("data.fields is empty".into()).into());
+        }
+
+        let device_id = {
+            let device_lock = self.get_device(&data.device_id)?;
+            let device = device_lock.lock().unwrap();
+
+            device.id
+        };
+
+        let res = self
+            .svc
+            .get_sensor_data(
+                device_id,
+                data.sensor.clone(),
+                data.fields.clone(),
+                data.to_sensor_data_filter(),
+            )
+            .await?;
+
+        Ok(sensor_data_result_from_service(res))
     }
 
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {
@@ -153,7 +231,7 @@ fn service_sensor_from_module(
             for data_type_info in sensor.data_type_infos {
                 data_map.insert(
                     data_type_info.name.clone(),
-                    service::SensorData {
+                    service::SensorDataEntry {
                         name: data_type_info.name,
                         typ: service_sensor_data_type_from_module(data_type_info.typ),
                     },

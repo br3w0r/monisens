@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::controller;
 use actix_multipart::form::{bytes::Bytes, tempfile::TempFile, text::Text, MultipartForm};
 use serde::{Deserialize, Serialize};
@@ -329,4 +331,116 @@ impl From<DeviceConfType> for controller::DeviceConfType {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct InterruptDeviceInitRequest {
     pub device_id: i32,
+}
+
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct GetSensorDataRequest {
+    pub device_id: i32,
+    pub sensor: String,
+    pub fields: Vec<String>,
+    pub sort: Sort,
+    pub from: Option<SensorData>,
+    pub limit: Option<i32>,
+}
+
+impl From<GetSensorDataRequest> for controller::GetSensorDataPayload {
+    fn from(value: GetSensorDataRequest) -> Self {
+        Self {
+            device_id: value.device_id,
+            sensor: value.sensor,
+            fields: value.fields,
+            sort: value.sort.into(),
+            from: value.from.map(|v| v.into()),
+            limit: value.limit,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GetSensorDataResponse {
+    result: Vec<HashMap<String, SensorData>>,
+}
+
+impl From<controller::GetSensorDataResult> for GetSensorDataResponse {
+    fn from(mut value: controller::GetSensorDataResult) -> Self {
+        Self {
+            result: value
+                .drain(..)
+                .map(|mut v| v.drain().map(|(field, val)| (field, val.into())).collect())
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub enum SortOrder {
+    ASC,
+    DESC,
+}
+
+impl From<SortOrder> for controller::SortOrder {
+    fn from(value: SortOrder) -> Self {
+        match value {
+            SortOrder::ASC => controller::SortOrder::ASC,
+            SortOrder::DESC => controller::SortOrder::DESC,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub struct Sort {
+    pub field: String,
+    pub order: SortOrder,
+}
+
+impl From<Sort> for controller::Sort {
+    fn from(value: Sort) -> Self {
+        Self {
+            field: value.field,
+            order: value.order.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub enum SensorData {
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
+    #[schema(value_type = String)]
+    Timestamp(chrono::NaiveDateTime),
+    String(String),
+    JSON(String),
+}
+
+impl From<SensorData> for controller::SensorData {
+    fn from(value: SensorData) -> Self {
+        match value {
+            SensorData::Int16(v) => controller::SensorData::Int16(v),
+            SensorData::Int32(v) => controller::SensorData::Int32(v),
+            SensorData::Int64(v) => controller::SensorData::Int64(v),
+            SensorData::Float32(v) => controller::SensorData::Float32(v),
+            SensorData::Float64(v) => controller::SensorData::Float64(v),
+            SensorData::Timestamp(v) => controller::SensorData::Timestamp(v),
+            SensorData::String(v) => controller::SensorData::String(v),
+            SensorData::JSON(v) => controller::SensorData::JSON(v),
+        }
+    }
+}
+
+impl From<controller::SensorData> for SensorData {
+    fn from(value: controller::SensorData) -> Self {
+        match value {
+            controller::SensorData::Int16(v) => SensorData::Int16(v),
+            controller::SensorData::Int32(v) => SensorData::Int32(v),
+            controller::SensorData::Int64(v) => SensorData::Int64(v),
+            controller::SensorData::Float32(v) => SensorData::Float32(v),
+            controller::SensorData::Float64(v) => SensorData::Float64(v),
+            controller::SensorData::Timestamp(v) => SensorData::Timestamp(v),
+            controller::SensorData::String(v) => SensorData::String(v),
+            controller::SensorData::JSON(v) => SensorData::JSON(v),
+        }
+    }
 }

@@ -11,7 +11,10 @@ use crate::query::integration::isqlx as sq;
 use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
 use crate::{repo, table, tool::validation};
 
-pub use device::{DeviceID, Sensor, SensorData, SensorDataType};
+pub use db_model::{
+    SensorData, SensorDataFilter, SensorDataRow, SensorDataTypeValue, Sort, SortOrder,
+};
+pub use device::{DeviceID, DeviceInitState, Sensor, SensorDataEntry, SensorDataType};
 pub use error::ServiceError;
 pub use model::*;
 
@@ -176,13 +179,8 @@ impl Service {
         let mut tx = self.repo.tx().await?;
 
         // Check whether device's state is 'DEVICE'
-        let mut b = sq::StatementBuilder::new();
-        b.table(db_model::Device::table_name())
-            .column("init_state")
-            .whereq(sq::eq("id".into(), id.get_raw()));
-
-        let (init_state,): (db_model::DeviceInitState,) = tx.get(b.select()).await?;
-        if init_state != db_model::DeviceInitState::Device {
+        let init_state = self.device_manager.get_device_init_state(id)?;
+        if init_state != device::DeviceInitState::Device {
             return Err(Box::new(ServiceError::DeviceAlreadyInitialized(id)));
         }
 
@@ -205,6 +203,52 @@ impl Service {
 
     pub fn get_init_data_all_devices(&self) -> Vec<DeviceInitData> {
         self.device_manager.get_init_data_all_devices()
+    }
+
+    pub async fn save_sensor_data(
+        &self,
+        id: DeviceID,
+        sensor_name: String,
+        data_list: Vec<SensorData>,
+    ) -> Result<(), Box<dyn Error>> {
+        // TODO: data validation?
+        let device_name = self.device_manager.get_device_name(&id)?;
+        let table_name = quote_string(&sensor_table_name(id, &device_name, &sensor_name));
+        let mut b = sq::StatementBuilder::new();
+
+        let mut cols = Vec::with_capacity(data_list.len());
+        let mut vals = Vec::with_capacity(data_list.len());
+
+        for data in data_list {
+            cols.push(data.name);
+            vals.push(data.data.into())
+        }
+
+        b.table(table_name).columns(&cols).values(vals);
+
+        self.repo.exec(b.insert()).await?;
+
+        Ok(())
+    }
+
+    pub async fn get_sensor_data(
+        &self,
+        id: DeviceID,
+        sensor_name: String,
+        fields: Vec<String>,
+        filter: db_model::SensorDataFilter,
+    ) -> Result<Vec<SensorDataRow>, Box<dyn Error>> {
+        let device_name = self.device_manager.get_device_name(&id)?;
+        let table_name = quote_string(&sensor_table_name(id, &device_name, &sensor_name));
+
+        let mut b = sq::StatementBuilder::new();
+
+        b.table(table_name).columns(&fields);
+        filter.apply(&mut b);
+
+        let res = self.repo.select(b.select()).await?;
+
+        Ok(res)
     }
 
     async fn init_device_manager(
@@ -258,4 +302,13 @@ fn base_validate_name(s: &str) -> Result<(), validation::ValidationError> {
 
 fn sensor_table_name(device_id: DeviceID, device_name: &str, sensor_name: &str) -> String {
     device_id.get_raw().to_string() + "-" + device_name + "__" + sensor_name
+}
+
+fn quote_string(s: &str) -> String {
+    let mut res = String::with_capacity(s.len() + 2);
+    res.push('"');
+    res.push_str(s);
+    res.push('"');
+
+    res
 }

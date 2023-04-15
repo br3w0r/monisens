@@ -1,4 +1,3 @@
-use std::fmt;
 use thiserror::Error;
 
 use crate::debug_from_display;
@@ -12,6 +11,9 @@ pub enum ControllerError {
     // DeviceAlreadyConnected,
     // #[error("device is not connected")]
     // DeviceNotConnected
+
+    #[error("incorrect payload was given to method: {0}")]
+    IncorrectPayload(String)
 }
 
 debug_from_display!(ControllerError);

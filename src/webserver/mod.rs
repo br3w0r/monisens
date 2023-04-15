@@ -7,6 +7,7 @@ use std::error::Error;
 
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
+use chrono;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -22,6 +23,7 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             service::obtain_device_conf_info,
             service::configure_device,
             service::interrupt_device_init,
+            service::get_sensor_data,
         ),
         components(schemas(
             contract::TestUploadForm,
@@ -47,6 +49,11 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             contract::DeviceConfEntry,
             contract::DeviceConfType,
             contract::InterruptDeviceInitRequest,
+            contract::GetSensorDataRequest,
+            contract::GetSensorDataResponse,
+            contract::Sort,
+            contract::SortOrder,
+            contract::SensorData,
         ))
     )]
     struct ApiDoc;
@@ -64,7 +71,8 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
                     .service(service::connect_device)
                     .service(service::obtain_device_conf_info)
                     .service(service::configure_device)
-                    .service(service::interrupt_device_init),
+                    .service(service::interrupt_device_init)
+                    .service(service::get_sensor_data),
             )
             .service(app::index)
             .service(web::redirect("/app", "/app/"))

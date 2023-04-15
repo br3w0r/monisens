@@ -191,6 +191,59 @@ typedef struct
 
 typedef void (*sensor_type_infos_callback)(void *obj, SensorTypeInfos *infos);
 
+// ------------------------ ц ------------------------
+
+typedef struct
+{
+    char *name;
+
+    SensorDataType typ;
+    // По типу:
+    // SensorDataTypeInt16:     int16_t
+    // SensorDataTypeInt32:     int32_t
+    // SensorDataTypeInt64:     int64_t
+    // SensorDataTypeFloat32:   float32_t
+    // SensorDataTypeFloat64:   float64_t
+    // SensorDataTypeTimestamp: int64_t
+    // SensorDataTypeString:    *char
+    // SensorDataTypeJSON:      *char
+    void *data;
+} SensorMsgData;
+
+typedef struct
+{
+    char *name;
+    SensorMsgData *data;
+    int32_t data_len;
+} SensorMsg;
+
+typedef enum
+{
+    MsgCodeInfo,
+    MsgCodeWarn,
+    MsgCodeError,
+} MsgCode;
+
+typedef struct
+{
+    MsgCode code;
+    char *msg;
+} CommonMsg;
+
+typedef enum
+{
+    MessageTypeSensor, // data:SensorMsg
+    MessageTypeCommon, // data:CommonMsg
+} MessageType;
+
+typedef struct
+{
+    MessageType typ;
+    void *data;
+} Message;
+
+typedef void (*handle_msg_func)(void *handler, Message msg_data);
+
 // ---------------------------- Процесс работы модуля ----------------------------
 
 typedef uint8_t (*mod_version_fn)();
@@ -204,6 +257,8 @@ typedef struct
     void (*obtain_device_conf_info)(void *handler, void *obj, device_conf_info_callback callback);
     uint8_t (*configure_device)(void *handler, DeviceConf *conf);
     uint8_t (*obtain_sensor_type_infos)(void *handler, void *obj, sensor_type_infos_callback callback);
+    uint8_t (*start)(void *handler, void *msg_handler, handle_msg_func handle_func);
+    uint8_t (*stop)(void *handler);
 } Functions;
 
 typedef Functions (*functions_fn)();

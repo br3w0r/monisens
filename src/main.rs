@@ -1,4 +1,6 @@
-use std::{env, error::Error};
+use std::error::Error;
+
+use tokio::runtime::Handle;
 
 mod app;
 mod controller;
@@ -16,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let conf = controller::Conf::new()
         .with_repo_dsn("postgres://postgres:pgpass@localhost:5433/monisens".into());
 
-    let ctrl = controller::Controller::new(conf).await?;
+    let ctrl = controller::Controller::new(conf, Handle::current()).await?;
 
     println!("Starting web server...");
     webserver::start_server(ctrl).await

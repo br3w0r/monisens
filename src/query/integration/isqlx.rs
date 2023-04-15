@@ -1,6 +1,7 @@
 use crate::query;
 use crate::query::expr;
 use crate::query::sqlizer::Sqlizer;
+use chrono;
 use sqlx::database::HasArguments;
 use sqlx::postgres::Postgres;
 use sqlx::query::Query;
@@ -48,6 +49,8 @@ ref_arg_type!(f64);
 ref_arg_type!(&str);
 ref_arg_type!(String);
 
+ref_arg_type!(chrono::NaiveDateTime);
+
 pub type GenericArg = Box<dyn ArgType + 'static>;
 
 #[macro_export]
@@ -72,6 +75,8 @@ arg_from_ty!(f64);
 
 arg_from_ty!(&'static str);
 arg_from_ty!(String);
+
+arg_from_ty!(chrono::NaiveDateTime);
 
 pub type StatementBuilder = query::StatementBuilder<GenericArg>;
 

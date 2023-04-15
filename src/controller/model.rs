@@ -1,9 +1,9 @@
-use std::ffi::CString;
+use std::{collections::HashMap, ffi::CString};
 
-use crate::module;
+use crate::{module, service};
 
 pub mod internal {
-    use crate::{module, service};
+    use crate::{controller::msg, module, service};
 
     // TODO: issue #81
     // pub enum DeviceState {
@@ -15,6 +15,7 @@ pub mod internal {
     pub struct Device {
         pub id: service::DeviceID,
         pub module: module::Module,
+        pub msg_handler: Option<msg::Handler>,
         // TODO: issue #81
         // pub state: DeviceState,
     }
@@ -298,5 +299,110 @@ pub struct DeviceConfEntry {
 impl From<DeviceConfEntry> for module::DeviceConfEntry {
     fn from(value: DeviceConfEntry) -> Self {
         module::DeviceConfEntry::new(value.id, value.data.map(|v| v.into()))
+    }
+}
+
+pub struct GetSensorDataPayload {
+    pub device_id: i32,
+    pub sensor: String,
+    pub fields: Vec<String>,
+    pub sort: Sort,
+    pub from: Option<SensorData>,
+    pub limit: Option<i32>,
+}
+
+impl GetSensorDataPayload {
+    pub fn to_sensor_data_filter(&self) -> service::SensorDataFilter {
+        let mut res = service::SensorDataFilter::default();
+
+        if let Some(ref from) = self.from {
+            if self.sort.order == SortOrder::ASC {
+                res.from = Some((self.sort.field.clone(), from.clone().into()));
+            } else {
+                res.to = Some((self.sort.field.clone(), from.clone().into()));
+            }
+        }
+
+        res.limit = self.limit.clone();
+        res.sort = Some(self.sort.clone().into());
+
+        res
+    }
+}
+
+pub type GetSensorDataResult = Vec<HashMap<String, SensorData>>;
+
+pub fn sensor_data_result_from_service(
+    mut value: Vec<service::SensorDataRow>,
+) -> GetSensorDataResult {
+    value
+        .drain(..)
+        .map(|mut v| v.0.drain(..).map(|v| (v.name, v.data.into())).collect())
+        .collect()
+}
+
+#[derive(PartialEq, Clone)]
+pub enum SortOrder {
+    ASC,
+    DESC,
+}
+
+#[derive(Clone)]
+pub struct Sort {
+    pub field: String,
+    pub order: SortOrder,
+}
+
+impl From<Sort> for service::Sort {
+    fn from(value: Sort) -> Self {
+        Self {
+            field: value.field,
+            order: match value.order {
+                SortOrder::ASC => service::SortOrder::ASC,
+                SortOrder::DESC => service::SortOrder::DESC,
+            },
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum SensorData {
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
+    Timestamp(chrono::NaiveDateTime),
+    String(String),
+    JSON(String),
+}
+
+impl From<SensorData> for service::SensorDataTypeValue {
+    fn from(value: SensorData) -> Self {
+        match value {
+            SensorData::Int16(v) => service::SensorDataTypeValue::Int16(v),
+            SensorData::Int32(v) => service::SensorDataTypeValue::Int32(v),
+            SensorData::Int64(v) => service::SensorDataTypeValue::Int64(v),
+            SensorData::Float32(v) => service::SensorDataTypeValue::Float32(v),
+            SensorData::Float64(v) => service::SensorDataTypeValue::Float64(v),
+            SensorData::Timestamp(v) => service::SensorDataTypeValue::Timestamp(v),
+            SensorData::String(v) => service::SensorDataTypeValue::String(v),
+            SensorData::JSON(v) => service::SensorDataTypeValue::JSON(v),
+        }
+    }
+}
+
+impl From<service::SensorDataTypeValue> for SensorData {
+    fn from(value: service::SensorDataTypeValue) -> Self {
+        match value {
+            service::SensorDataTypeValue::Int16(v) => SensorData::Int16(v),
+            service::SensorDataTypeValue::Int32(v) => SensorData::Int32(v),
+            service::SensorDataTypeValue::Int64(v) => SensorData::Int64(v),
+            service::SensorDataTypeValue::Float32(v) => SensorData::Float32(v),
+            service::SensorDataTypeValue::Float64(v) => SensorData::Float64(v),
+            service::SensorDataTypeValue::Timestamp(v) => SensorData::Timestamp(v),
+            service::SensorDataTypeValue::String(v) => SensorData::String(v),
+            service::SensorDataTypeValue::JSON(v) => SensorData::JSON(v),
+        }
     }
 }

@@ -625,6 +625,159 @@ pub extern "C" fn sensor_type_infos_callback(obj: *mut c_void, infos: *mut bg::S
     sensor_type_infos(obj as _, infos);
 }
 
+#[derive(Debug)]
+pub struct Message {
+    pub msg: MessageType,
+}
+
+impl From<bg::Message> for Message {
+    fn from(value: bg::Message) -> Self {
+        match value.typ {
+            bg::MessageType::MessageTypeSensor => Self {
+                msg: MessageType::Sensor(
+                    unsafe { &(*(value.data as *const bg::SensorMsg)) }.into(),
+                ),
+            },
+            bg::MessageType::MessageTypeCommon => Self {
+                msg: MessageType::Common(
+                    unsafe { &(*(value.data as *const bg::CommonMsg)) }.into(),
+                ),
+            },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MessageType {
+    Sensor(SensorMsg),
+    Common(CommonMsg),
+}
+
+#[derive(Debug)]
+pub struct SensorMsg {
+    pub name: String,
+    pub data: Vec<SensorMsgData>,
+}
+
+impl From<&bg::SensorMsg> for SensorMsg {
+    fn from(value: &bg::SensorMsg) -> Self {
+        let data_list = unsafe { std::slice::from_raw_parts(value.data, value.data_len as _) };
+
+        Self {
+            name: str_from_c_char(value.name),
+            data: data_list.into_iter().map(|v| v.into()).collect(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SensorMsgData {
+    pub name: String,
+    pub data: SensorMsgDataType,
+}
+
+impl From<&bg::SensorMsgData> for SensorMsgData {
+    fn from(value: &bg::SensorMsgData) -> Self {
+        let data = unsafe {
+            match value.typ {
+                bg::SensorDataType::SensorDataTypeInt16 => {
+                    SensorMsgDataType::Int16(*(value.data as *mut i16))
+                }
+                bg::SensorDataType::SensorDataTypeInt32 => {
+                    SensorMsgDataType::Int32(*(value.data as *mut i32))
+                }
+                bg::SensorDataType::SensorDataTypeInt64 => {
+                    SensorMsgDataType::Int64(*(value.data as *mut i64))
+                }
+                bg::SensorDataType::SensorDataTypeFloat32 => {
+                    SensorMsgDataType::Float32(*(value.data as *mut f32))
+                }
+                bg::SensorDataType::SensorDataTypeFloat64 => {
+                    SensorMsgDataType::Float64(*(value.data as *mut f64))
+                }
+                bg::SensorDataType::SensorDataTypeTimestamp => {
+                    SensorMsgDataType::Timestamp(*(value.data as *mut i64))
+                }
+                bg::SensorDataType::SensorDataTypeString => {
+                    SensorMsgDataType::String(str_from_c_char(value.data as *mut c_char))
+                }
+                bg::SensorDataType::SensorDataTypeJSON => {
+                    SensorMsgDataType::JSON(str_from_c_char(value.data as *mut c_char))
+                }
+            }
+        };
+
+        Self {
+            name: str_from_c_char(value.name),
+            data,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum SensorMsgDataType {
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
+    Timestamp(i64),
+    String(String),
+    JSON(String),
+}
+
+#[derive(Debug)]
+pub struct CommonMsg {
+    code: MsgCode,
+    msg: String,
+}
+
+impl From<&bg::CommonMsg> for CommonMsg {
+    fn from(value: &bg::CommonMsg) -> Self {
+        Self {
+            code: value.code.into(),
+            msg: str_from_c_char(value.msg),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MsgCode {
+    Info,
+    Warn,
+    Error,
+}
+
+impl From<bg::MsgCode> for MsgCode {
+    fn from(value: bg::MsgCode) -> Self {
+        match value {
+            bg::MsgCode::MsgCodeInfo => MsgCode::Info,
+            bg::MsgCode::MsgCodeWarn => MsgCode::Warn,
+            bg::MsgCode::MsgCodeError => MsgCode::Error,
+        }
+    }
+}
+
+pub trait MsgHandler: Send + Sync {
+    fn handle_msg(&self, msg: Message);
+}
+
+pub struct MsgHandle(Box<dyn MsgHandler>);
+
+impl MsgHandle {
+    pub fn new<H: MsgHandler + 'static>(msg_handler: H) -> Self {
+        Self(Box::new(msg_handler))
+    }
+}
+
+pub extern "C" fn handle_msg_callback(handler: *mut c_void, msg_data: bg::Message) {
+    let h = handler as *const MsgHandle;
+
+    unsafe {
+        (*h).0.handle_msg(msg_data.into());
+    }
+}
+
 // ------------------- Utility functions -------------------
 
 pub fn convert_com_error(err: u8) -> Result<(), ComError> {

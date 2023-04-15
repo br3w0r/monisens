@@ -76,7 +76,7 @@ impl SensorDataType {
     }
 }
 
-pub struct SensorData {
+pub struct SensorDataEntry {
     pub name: String,
     pub typ: SensorDataType,
 }
@@ -86,7 +86,22 @@ pub struct Sensor {
     pub name: String,
 
     /// key in the [`HashMap`] is equal to [`SensorData`]`.name`
-    pub data_map: HashMap<String, SensorData>,
+    pub data_map: HashMap<String, SensorDataEntry>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum DeviceInitState {
+    Device,
+    Sensors,
+}
+
+impl From<&db_model::DeviceInitState> for DeviceInitState {
+    fn from(value: &db_model::DeviceInitState) -> Self {
+        match value {
+            db_model::DeviceInitState::Device => DeviceInitState::Device,
+            db_model::DeviceInitState::Sensors => DeviceInitState::Sensors,
+        }
+    }
 }
 
 pub struct Device {
@@ -94,6 +109,7 @@ pub struct Device {
     name: String,
     module_dir: String,
     data_dir: String,
+    init_state: DeviceInitState,
 
     /// [`HashMap`]<`sensor's table name`, [`Sensor`]>
     sensor_map: HashMap<String, Sensor>,
@@ -159,6 +175,7 @@ impl DeviceManager {
                     module_dir: device.module_dir.clone(),
                     data_dir: device.data_dir.clone(),
                     sensor_map: HashMap::new(),
+                    init_state: (&device.init_state).into(),
                 })),
             );
 
@@ -187,7 +204,7 @@ impl DeviceManager {
 
             sensor.data_map.insert(
                 sensor_type.column_name.clone(),
-                SensorData {
+                SensorDataEntry {
                     name: sensor_type.column_name.clone(),
                     typ: typ,
                 },
@@ -261,6 +278,7 @@ impl DeviceManager {
             module_dir: module_dir.clone(),
             data_dir: data_dir.clone(),
             sensor_map: Default::default(),
+            init_state: DeviceInitState::Device,
         };
 
         (*self.device_map.write().unwrap()).insert(id, Arc::new(RwLock::new(device)));
@@ -270,6 +288,7 @@ impl DeviceManager {
             module_file: full_module_path,
             data_dir,
             module_dir,
+            init_state: DeviceInitState::Device,
         })
     }
 
@@ -283,6 +302,7 @@ impl DeviceManager {
         for sensor in sensors {
             device.sensor_map.insert(sensor.name.clone(), sensor);
         }
+        device.init_state = DeviceInitState::Sensors;
 
         Ok(())
     }
@@ -292,6 +312,13 @@ impl DeviceManager {
         let device = device.read().unwrap();
 
         Ok(device.name.clone())
+    }
+
+    pub fn get_device_init_state(&self, id: DeviceID) -> Result<DeviceInitState, DeviceError> {
+        let device = self.get_device(&id)?;
+        let device = device.read().unwrap();
+
+        Ok(device.init_state.clone())
     }
 
     pub async fn delete_device(&self, id: &DeviceID) -> Result<(), Box<dyn Error>> {
@@ -328,6 +355,7 @@ impl DeviceManager {
                 module_dir: data.module_dir.clone(),
                 data_dir: self.full_data_dir(&data.data_dir),
                 module_file: self.full_module_file_path(&data.module_dir),
+                init_state: data.init_state.clone(),
             })
         }
 

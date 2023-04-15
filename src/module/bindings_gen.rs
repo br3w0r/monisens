@@ -1008,6 +1008,208 @@ fn bindgen_test_layout_SensorTypeInfos() {
 pub type sensor_type_infos_callback = ::std::option::Option<
     unsafe extern "C" fn(obj: *mut ::std::os::raw::c_void, infos: *mut SensorTypeInfos),
 >;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct SensorMsgData {
+    pub name: *mut ::std::os::raw::c_char,
+    pub typ: SensorDataType,
+    pub data: *mut ::std::os::raw::c_void,
+}
+#[test]
+fn bindgen_test_layout_SensorMsgData() {
+    const UNINIT: ::std::mem::MaybeUninit<SensorMsgData> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<SensorMsgData>(),
+        24usize,
+        concat!("Size of: ", stringify!(SensorMsgData))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SensorMsgData>(),
+        8usize,
+        concat!("Alignment of ", stringify!(SensorMsgData))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsgData),
+            "::",
+            stringify!(name)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).typ) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsgData),
+            "::",
+            stringify!(typ)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsgData),
+            "::",
+            stringify!(data)
+        )
+    );
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct SensorMsg {
+    pub name: *mut ::std::os::raw::c_char,
+    pub data: *mut SensorMsgData,
+    pub data_len: i32,
+}
+#[test]
+fn bindgen_test_layout_SensorMsg() {
+    const UNINIT: ::std::mem::MaybeUninit<SensorMsg> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<SensorMsg>(),
+        24usize,
+        concat!("Size of: ", stringify!(SensorMsg))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<SensorMsg>(),
+        8usize,
+        concat!("Alignment of ", stringify!(SensorMsg))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).name) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsg),
+            "::",
+            stringify!(name)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsg),
+            "::",
+            stringify!(data)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data_len) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(SensorMsg),
+            "::",
+            stringify!(data_len)
+        )
+    );
+}
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum MsgCode {
+    MsgCodeInfo = 0,
+    MsgCodeWarn = 1,
+    MsgCodeError = 2,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct CommonMsg {
+    pub code: MsgCode,
+    pub msg: *mut ::std::os::raw::c_char,
+}
+#[test]
+fn bindgen_test_layout_CommonMsg() {
+    const UNINIT: ::std::mem::MaybeUninit<CommonMsg> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<CommonMsg>(),
+        16usize,
+        concat!("Size of: ", stringify!(CommonMsg))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<CommonMsg>(),
+        8usize,
+        concat!("Alignment of ", stringify!(CommonMsg))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).code) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(CommonMsg),
+            "::",
+            stringify!(code)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).msg) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(CommonMsg),
+            "::",
+            stringify!(msg)
+        )
+    );
+}
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum MessageType {
+    MessageTypeSensor = 0,
+    MessageTypeCommon = 1,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Message {
+    pub typ: MessageType,
+    pub data: *mut ::std::os::raw::c_void,
+}
+#[test]
+fn bindgen_test_layout_Message() {
+    const UNINIT: ::std::mem::MaybeUninit<Message> = ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<Message>(),
+        16usize,
+        concat!("Size of: ", stringify!(Message))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<Message>(),
+        8usize,
+        concat!("Alignment of ", stringify!(Message))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).typ) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Message),
+            "::",
+            stringify!(typ)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).data) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Message),
+            "::",
+            stringify!(data)
+        )
+    );
+}
+pub type handle_msg_func = ::std::option::Option<
+    unsafe extern "C" fn(handler: *mut ::std::os::raw::c_void, msg_data: Message),
+>;
 pub type mod_version_fn = ::std::option::Option<unsafe extern "C" fn() -> u8>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -1045,6 +1247,15 @@ pub struct Functions {
             callback: sensor_type_infos_callback,
         ) -> u8,
     >,
+    pub start: ::std::option::Option<
+        unsafe extern "C" fn(
+            handler: *mut ::std::os::raw::c_void,
+            msg_handler: *mut ::std::os::raw::c_void,
+            handle_func: handle_msg_func,
+        ) -> u8,
+    >,
+    pub stop:
+        ::std::option::Option<unsafe extern "C" fn(handler: *mut ::std::os::raw::c_void) -> u8>,
 }
 #[test]
 fn bindgen_test_layout_Functions() {
@@ -1052,7 +1263,7 @@ fn bindgen_test_layout_Functions() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<Functions>(),
-        56usize,
+        72usize,
         concat!("Size of: ", stringify!(Functions))
     );
     assert_eq!(
@@ -1128,6 +1339,26 @@ fn bindgen_test_layout_Functions() {
             stringify!(Functions),
             "::",
             stringify!(obtain_sensor_type_infos)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).start) as usize - ptr as usize },
+        56usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Functions),
+            "::",
+            stringify!(start)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).stop) as usize - ptr as usize },
+        64usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(Functions),
+            "::",
+            stringify!(stop)
         )
     );
 }

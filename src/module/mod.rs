@@ -12,9 +12,10 @@ use model::*;
 pub use self::error::*;
 
 pub use model::{
-    ConnParam, ConnParamInfo, ConnParamType, ConnParamValType, DeviceConfEntry, DeviceConfInfo,
-    DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType, DeviceConnectConf,
-    SensorDataType, SensorTypeInfo,
+    CommonMsg, ConnParam, ConnParamInfo, ConnParamType, ConnParamValType, DeviceConfEntry,
+    DeviceConfInfo, DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType,
+    DeviceConnectConf, Message, MessageType, MsgCode, MsgHandler, SensorDataType, SensorMsg,
+    SensorMsgData, SensorMsgDataType, SensorTypeInfo,
 };
 
 pub struct Module {
@@ -22,6 +23,8 @@ pub struct Module {
     lib: libloading::Library,
     handle: Handle,
     funcs: bg::Functions,
+
+    msg_handle: Option<MsgHandle>,
 }
 
 impl Drop for Module {
@@ -60,6 +63,7 @@ impl Module {
                 lib,
                 handle: handler,
                 funcs,
+                msg_handle: None,
             })
         }
     }
@@ -128,5 +132,25 @@ impl Module {
         };
 
         infos_rec
+    }
+
+    pub fn start<H: MsgHandler + 'static>(&mut self, msg_handler: H) -> Result<(), ComError> {
+        self.msg_handle = Some(MsgHandle::new(msg_handler));
+
+        unsafe {
+            self.funcs.start.unwrap()(
+                self.handle.handler(),
+                self.msg_handle.as_ref().unwrap() as *const MsgHandle as *mut c_void,
+                Some(handle_msg_callback),
+            );
+        }
+
+        Ok(())
+    }
+
+    pub fn stop(&mut self) -> Result<(), ComError> {
+        let err = unsafe { self.funcs.stop.unwrap()(self.handle.handler()) };
+
+        convert_com_error(err)
     }
 }

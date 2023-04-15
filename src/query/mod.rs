@@ -18,6 +18,8 @@ const COLUMNS: &str = "columns";
 const WHERE: &str = "where";
 const VALUES: &str = "values";
 const SET: &str = "set";
+const ORDER: &str = "order";
+const LIMIT: &str = "limit";
 
 pub struct StatementBuilder<A> {
     b: Builder<A>,
@@ -78,6 +80,24 @@ impl<A: 'static> StatementBuilder<A> {
         self.b
             .push(SET, SetExpr::new(column, value))
             .expect("failed to extend 'set' statement");
+
+        self
+    }
+
+    pub fn order(&mut self, order: String) -> &mut Self {
+        self.b.set(
+            ORDER.to_string(),
+            Rc::new(Part::new(PredType::String(order), None)),
+        );
+
+        self
+    }
+
+    pub fn limit(&mut self, limit: i32) -> &mut Self {
+        self.b.set(
+            LIMIT.to_string(),
+            Rc::new(Part::new(PredType::String("LIMIT ".to_string() + &limit.to_string()), None)),
+        );
 
         self
     }
@@ -154,6 +174,16 @@ impl<A: 'static> Sqlizer<A> for SelectBuilder<A> {
                 sql.push_str(" WHERE ");
                 tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
             }
+        }
+
+        if let Some(order) = self.0.b.get(ORDER) {
+            sql.push_str(" ORDER BY ");
+            sql.push_str(&order.sql()?.0);
+        }
+
+        if let Some(limit) = self.0.b.get(LIMIT) {
+            sql.push(' ');
+            sql.push_str(&limit.sql()?.0);
         }
 
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))

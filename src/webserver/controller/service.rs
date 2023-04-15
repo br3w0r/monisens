@@ -107,3 +107,21 @@ pub async fn interrupt_device_init(
 
     Ok(HttpResponse::Ok())
 }
+
+#[utoipa::path(
+    context_path = "/service",
+    request_body(content = GetSensorDataRequest, content_type = "application/json"),
+    responses(
+        (status = 200, description = "Ok response", body = GetSensorDataResponse),
+        (status = 500, description = "Server error response"),
+    ),
+)]
+#[post("/get-sensor-data")]
+pub async fn get_sensor_data(
+    data: web::Data<State>,
+    req: web::Json<contract::GetSensorDataRequest>,
+) -> Result<impl Responder> {
+    let res = data.ctrl.get_sensor_data(req.0.clone().into()).await?;
+
+    Ok(web::Json::<contract::GetSensorDataResponse>(res.into()))
+}
