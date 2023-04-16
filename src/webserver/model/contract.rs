@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use crate::controller;
 use actix_multipart::form::{bytes::Bytes, tempfile::TempFile, text::Text, MultipartForm};
-use validator::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
 #[derive(Debug, MultipartForm, ToSchema)]
 pub struct TestUploadForm {
@@ -448,6 +448,34 @@ impl From<controller::SensorData> for SensorData {
             controller::SensorData::Timestamp(v) => SensorData::Timestamp(v),
             controller::SensorData::String(v) => SensorData::String(v),
             controller::SensorData::JSON(v) => SensorData::JSON(v),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct GetDeviceListResponse {
+    result: Vec<DeviceEntry>,
+}
+
+impl From<Vec<controller::DeviceEntry>> for GetDeviceListResponse {
+    fn from(mut value: Vec<controller::DeviceEntry>) -> Self {
+        Self {
+            result: value.drain(..).map(|v| v.into()).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DeviceEntry {
+    pub id: i32,
+    pub name: String,
+}
+
+impl From<controller::DeviceEntry> for DeviceEntry {
+    fn from(value: controller::DeviceEntry) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
         }
     }
 }

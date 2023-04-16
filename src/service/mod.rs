@@ -14,7 +14,7 @@ use crate::{repo, table, tool::validation};
 pub use db_model::{
     SensorData, SensorDataFilter, SensorDataRow, SensorDataTypeValue, Sort, SortOrder,
 };
-pub use device::{DeviceID, DeviceInitState, Sensor, SensorDataEntry, SensorDataType};
+pub use device::{DeviceID, DeviceInitState, Sensor, SensorDataEntry, SensorDataType, DeviceInfo};
 pub use error::ServiceError;
 pub use model::*;
 
@@ -249,6 +249,11 @@ impl Service {
         let res = self.repo.select(b.select()).await?;
 
         Ok(res)
+    }
+
+    /// See `DeviceManager.get_device_info_list()` for details
+    pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
+        self.device_manager.get_device_info_list()
     }
 
     async fn init_device_manager(

@@ -406,3 +406,17 @@ impl From<service::SensorDataTypeValue> for SensorData {
         }
     }
 }
+
+pub struct DeviceEntry {
+    pub id: i32,
+    pub name: String,
+}
+
+impl From<service::DeviceInfo> for DeviceEntry {
+    fn from(value: service::DeviceInfo) -> Self {
+        Self {
+            id: value.id.get_raw(),
+            name: value.name,
+        }
+    }
+}

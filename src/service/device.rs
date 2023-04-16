@@ -146,6 +146,12 @@ impl fmt::Display for DeviceID {
     }
 }
 
+/// DeviceInfo contains basic info about device that may be read by user
+pub struct DeviceInfo {
+    pub id: DeviceID,
+    pub name: String,
+}
+
 /// `DeviceManager` hosts data of all devices like names and data folders, sensors info etc.
 #[derive(Clone)]
 pub struct DeviceManager {
@@ -357,6 +363,26 @@ impl DeviceManager {
                 module_file: self.full_module_file_path(&data.module_dir),
                 init_state: data.init_state.clone(),
             })
+        }
+
+        res
+    }
+
+    /// get_device_info_list returns unsorted list of devices.
+    ///
+    /// Devices must be fully initialized to be returned (`init_state == DeviceInitState::Sensors`)
+    pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
+        let device_map = self.device_map.read().unwrap();
+        let mut res = Vec::with_capacity(device_map.len());
+        for (id, data_handler) in device_map.iter() {
+            let data = data_handler.read().unwrap();
+
+            if data.init_state == DeviceInitState::Sensors {
+                res.push(DeviceInfo {
+                    id: id.clone(),
+                    name: data.get_name().clone(),
+                })
+            }
         }
 
         res

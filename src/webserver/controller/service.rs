@@ -127,3 +127,19 @@ pub async fn get_sensor_data(
 
     Ok(web::Json::<contract::GetSensorDataResponse>(res.into()))
 }
+
+#[utoipa::path(
+    context_path = "/service",
+    responses(
+        (status = 200, description = "Ok response", body = GetDeviceListResponse),
+        (status = 500, description = "Server error response"),
+    ),
+)]
+#[post("/get-device-list")]
+pub async fn get_device_list(data: web::Data<State>) -> Result<impl Responder> {
+    let mut res = data.ctrl.get_device_list();
+
+    res.sort_unstable_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+
+    Ok(web::Json::<contract::GetDeviceListResponse>(res.into()))
+}

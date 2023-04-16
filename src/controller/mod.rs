@@ -210,6 +210,14 @@ impl Controller {
         Ok(sensor_data_result_from_service(res))
     }
 
+    pub fn get_device_list(&self) -> Vec<DeviceEntry> {
+        self.svc
+            .get_device_info_list()
+            .drain(..)
+            .map(|v| v.into())
+            .collect()
+    }
+
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {
         self.devices
             .read()
