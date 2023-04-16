@@ -1,5 +1,6 @@
 use actix_multipart::form::MultipartForm;
 use actix_web::{post, web, HttpResponse, Responder, Result};
+use actix_web_validator::Json;
 
 use crate::webserver::model::{contract, State};
 
@@ -119,8 +120,9 @@ pub async fn interrupt_device_init(
 #[post("/get-sensor-data")]
 pub async fn get_sensor_data(
     data: web::Data<State>,
-    req: web::Json<contract::GetSensorDataRequest>,
+    req: Json<contract::GetSensorDataRequest>,
 ) -> Result<impl Responder> {
+    // TODO: validation: if `limit` is null, `from` mustn't be null. If `from` is not null, `limit` must be null
     let res = data.ctrl.get_sensor_data(req.0.clone().into()).await?;
 
     Ok(web::Json::<contract::GetSensorDataResponse>(res.into()))

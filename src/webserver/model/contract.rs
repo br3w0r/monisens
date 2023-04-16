@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::controller;
 use actix_multipart::form::{bytes::Bytes, tempfile::TempFile, text::Text, MultipartForm};
+use validator::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -333,13 +334,18 @@ pub struct InterruptDeviceInitRequest {
     pub device_id: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, Validate, ToSchema)]
 pub struct GetSensorDataRequest {
+    #[validate(range(min = 1))]
     pub device_id: i32,
+    #[validate(length(min = 1))]
     pub sensor: String,
+    #[validate(length(min = 1))]
     pub fields: Vec<String>,
+    #[validate]
     pub sort: Sort,
     pub from: Option<SensorData>,
+    #[validate(range(max = 1000))]
     pub limit: Option<i32>,
 }
 
@@ -387,8 +393,9 @@ impl From<SortOrder> for controller::SortOrder {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Validate, Deserialize, ToSchema)]
 pub struct Sort {
+    #[validate(length(min = 1))]
     pub field: String,
     pub order: SortOrder,
 }
