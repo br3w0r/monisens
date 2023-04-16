@@ -1,6 +1,5 @@
 mod config;
 mod controller;
-mod error;
 mod model;
 
 use std::error::Error;
