@@ -420,3 +420,57 @@ impl From<service::DeviceInfo> for DeviceEntry {
         }
     }
 }
+
+pub struct SensorInfo {
+    pub name: String,
+    pub data: Vec<SensorDataInfo>,
+}
+
+impl From<service::SensorInfo> for SensorInfo {
+    fn from(mut value: service::SensorInfo) -> Self {
+        Self {
+            name: value.name,
+            data: value.data.drain(..).map(|v| v.into()).collect(),
+        }
+    }
+}
+
+pub struct SensorDataInfo {
+    pub name: String,
+    pub typ: SensorDataType,
+}
+
+impl From<service::SensorDataEntry> for SensorDataInfo {
+    fn from(value: service::SensorDataEntry) -> Self {
+        Self {
+            name: value.name,
+            typ: value.typ.into(),
+        }
+    }
+}
+
+pub enum SensorDataType {
+    Int16,
+    Int32,
+    Int64,
+    Float32,
+    Float64,
+    Timestamp,
+    String,
+    JSON,
+}
+
+impl From<service::SensorDataType> for SensorDataType {
+    fn from(value: service::SensorDataType) -> Self {
+        match value {
+            service::SensorDataType::Int16 => SensorDataType::Int16,
+            service::SensorDataType::Int32 => SensorDataType::Int32,
+            service::SensorDataType::Int64 => SensorDataType::Int64,
+            service::SensorDataType::Float32 => SensorDataType::Float32,
+            service::SensorDataType::Float64 => SensorDataType::Float64,
+            service::SensorDataType::Timestamp => SensorDataType::Timestamp,
+            service::SensorDataType::String => SensorDataType::String,
+            service::SensorDataType::JSON => SensorDataType::JSON,
+        }
+    }
+}

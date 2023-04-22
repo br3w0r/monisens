@@ -32,10 +32,13 @@ pub enum DeviceError {
     SensorDataUnknownType(String, String),
     #[error("device with id '{0}' was not found. Most probably it was deleted")]
     DeviceNotFound(DeviceID),
+    #[error("device with id '{0}' was not configured")]
+    DeviceNotConfigured(DeviceID),
 }
 
 debug_from_display!(DeviceError);
 
+#[derive(Clone)]
 pub enum SensorDataType {
     Int16,
     Int32,
@@ -76,6 +79,7 @@ impl SensorDataType {
     }
 }
 
+#[derive(Clone)]
 pub struct SensorDataEntry {
     pub name: String,
     pub typ: SensorDataType,
@@ -150,6 +154,12 @@ impl fmt::Display for DeviceID {
 pub struct DeviceInfo {
     pub id: DeviceID,
     pub name: String,
+}
+
+/// SensorInfo contains basic info about device's sensors that may be read by user
+pub struct SensorInfo {
+    pub name: String,
+    pub data: Vec<SensorDataEntry>,
 }
 
 /// `DeviceManager` hosts data of all devices like names and data folders, sensors info etc.
@@ -368,9 +378,9 @@ impl DeviceManager {
         res
     }
 
-    /// get_device_info_list returns unsorted list of devices.
+    /// get_device_info_list returns an unsorted list of devices.
     ///
-    /// Devices must be fully initialized to be returned (`init_state == DeviceInitState::Sensors`)
+    /// Devices must be configured to be returned (`init_state == DeviceInitState::Sensors`)
     pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
         let device_map = self.device_map.read().unwrap();
         let mut res = Vec::with_capacity(device_map.len());
@@ -386,6 +396,39 @@ impl DeviceManager {
         }
 
         res
+    }
+
+    /// get_device_info_list returns list of device's sensors and their data types.
+    ///
+    /// Both sensors and their data types are not sorted.
+    ///
+    /// If the device is not configured, an error `DeviceError::DeviceNotConfigured` is returned.
+    pub fn get_device_sensor_info(
+        &self,
+        device_id: DeviceID,
+    ) -> Result<Vec<SensorInfo>, DeviceError> {
+        let device = self.get_device(&device_id)?;
+        let device = device.read().unwrap();
+
+        if device.init_state != DeviceInitState::Sensors {
+            return Err(DeviceError::DeviceNotConfigured(device_id));
+        }
+
+        Ok(device
+            .sensor_map
+            .iter()
+            .map(|(name, sensor)| SensorInfo {
+                name: name.clone(),
+                data: sensor
+                    .data_map
+                    .iter()
+                    .map(|(name, data)| SensorDataEntry {
+                        name: name.clone(),
+                        typ: data.typ.clone(),
+                    })
+                    .collect(),
+            })
+            .collect())
     }
 
     fn inc_last_id(&self) -> DeviceID {

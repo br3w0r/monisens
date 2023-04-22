@@ -479,3 +479,85 @@ impl From<controller::DeviceEntry> for DeviceEntry {
         }
     }
 }
+
+#[derive(Clone, Debug, Validate, Deserialize, ToSchema)]
+pub struct GetDeviceSensorInfoRequest {
+    #[validate(range(min = 1))]
+    pub device_id: i32,
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct GetDeviceSensorInfoResponse {
+    pub device_sensor_info: Vec<SensorInfo>,
+}
+
+impl From<Vec<controller::SensorInfo>> for GetDeviceSensorInfoResponse {
+    fn from(mut value: Vec<controller::SensorInfo>) -> Self {
+        let mut device_sensor_info: Vec<SensorInfo> = value.drain(..).map(|v| v.into()).collect();
+
+        device_sensor_info.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+
+        Self { device_sensor_info }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct SensorInfo {
+    pub name: String,
+    pub data: Vec<SensorDataInfo>,
+}
+
+impl From<controller::SensorInfo> for SensorInfo {
+    fn from(mut value: controller::SensorInfo) -> Self {
+        let mut data: Vec<SensorDataInfo> = value.data.drain(..).map(|v| v.into()).collect();
+
+        data.sort_unstable_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+
+        Self {
+            name: value.name,
+            data: data,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct SensorDataInfo {
+    pub name: String,
+    pub typ: SensorDataType,
+}
+
+impl From<controller::SensorDataInfo> for SensorDataInfo {
+    fn from(value: controller::SensorDataInfo) -> Self {
+        Self {
+            name: value.name,
+            typ: value.typ.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub enum SensorDataType {
+    Int16,
+    Int32,
+    Int64,
+    Float32,
+    Float64,
+    Timestamp,
+    String,
+    JSON,
+}
+
+impl From<controller::SensorDataType> for SensorDataType {
+    fn from(value: controller::SensorDataType) -> Self {
+        match value {
+            controller::SensorDataType::Int16 => SensorDataType::Int16,
+            controller::SensorDataType::Int32 => SensorDataType::Int32,
+            controller::SensorDataType::Int64 => SensorDataType::Int64,
+            controller::SensorDataType::Float32 => SensorDataType::Float32,
+            controller::SensorDataType::Float64 => SensorDataType::Float64,
+            controller::SensorDataType::Timestamp => SensorDataType::Timestamp,
+            controller::SensorDataType::String => SensorDataType::String,
+            controller::SensorDataType::JSON => SensorDataType::JSON,
+        }
+    }
+}

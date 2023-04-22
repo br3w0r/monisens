@@ -96,7 +96,10 @@ impl<A: 'static> StatementBuilder<A> {
     pub fn limit(&mut self, limit: i32) -> &mut Self {
         self.b.set(
             LIMIT.to_string(),
-            Rc::new(Part::new(PredType::String("LIMIT ".to_string() + &limit.to_string()), None)),
+            Rc::new(Part::new(
+                PredType::String("LIMIT ".to_string() + &limit.to_string()),
+                None,
+            )),
         );
 
         self

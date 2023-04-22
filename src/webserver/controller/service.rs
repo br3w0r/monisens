@@ -143,3 +143,23 @@ pub async fn get_device_list(data: web::Data<State>) -> Result<impl Responder> {
 
     Ok(web::Json::<contract::GetDeviceListResponse>(res.into()))
 }
+
+#[utoipa::path(
+    context_path = "/service",
+    request_body(content = GetDeviceSensorInfoRequest, content_type = "application/json"),
+    responses(
+        (status = 200, description = "Ok response with device conf info", body = GetDeviceSensorInfoResponse),
+        (status = 500, description = "Server error response"),
+    ),
+)]
+#[post("/get-device-sensor-info")]
+pub async fn get_device_sensor_info(
+    data: web::Data<State>,
+    req: Json<contract::GetDeviceSensorInfoRequest>,
+) -> Result<impl Responder> {
+    let res = data.ctrl.get_device_sensor_info(req.device_id)?;
+
+    Ok(web::Json::<contract::GetDeviceSensorInfoResponse>(
+        res.into(),
+    ))
+}

@@ -190,12 +190,7 @@ impl Controller {
             return Err(ControllerError::IncorrectPayload("data.fields is empty".into()).into());
         }
 
-        let device_id = {
-            let device_lock = self.get_device(&data.device_id)?;
-            let device = device_lock.lock().unwrap();
-
-            device.id
-        };
+        let device_id = self.get_device_id(&data.device_id)?;
 
         let res = self
             .svc
@@ -218,6 +213,17 @@ impl Controller {
             .collect()
     }
 
+    pub fn get_device_sensor_info(
+        &self,
+        device_id: i32,
+    ) -> Result<Vec<SensorInfo>, Box<dyn Error>> {
+        let device_id = self.get_device_id(&device_id)?;
+
+        let mut res = self.svc.get_device_sensor_info(device_id)?;
+
+        Ok(res.drain(..).map(|v| v.into()).collect())
+    }
+
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {
         self.devices
             .read()
@@ -225,6 +231,13 @@ impl Controller {
             .get(id)
             .ok_or(ControllerError::UnknownDevice(id.clone()))
             .cloned()
+    }
+
+    fn get_device_id(&self, id: &i32) -> Result<service::DeviceID, ControllerError> {
+        let device_lock = self.get_device(id)?;
+        let device = device_lock.lock().unwrap();
+
+        Ok(device.id)
     }
 }
 
