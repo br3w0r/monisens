@@ -12,8 +12,8 @@ use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
 use crate::{repo, table, tool::validation};
 
 pub use db_model::{
-    MonitorConf, MonitorLogConf, MonitorType, MonitorTypeConf, SensorData, SensorDataFilter,
-    SensorDataRow, SensorDataTypeValue, Sort, SortDir,
+    MonitorConf, MonitorConfListFilter, MonitorLogConf, MonitorType, MonitorTypeConf, SensorData,
+    SensorDataFilter, SensorDataRow, SensorDataTypeValue, Sort, SortDir,
 };
 pub use device::{
     DeviceID, DeviceInfo, DeviceInitState, Sensor, SensorDataEntry, SensorDataType, SensorInfo,
@@ -268,7 +268,10 @@ impl Service {
         Ok(res)
     }
 
-    pub async fn save_monitor_conf(&self, monitor_conf: MonitorConf) -> Result<i32, Box<dyn Error>> {
+    pub async fn save_monitor_conf(
+        &self,
+        monitor_conf: MonitorConf,
+    ) -> Result<i32, Box<dyn Error>> {
         let mut b = sq::StatementBuilder::new();
 
         b.table(MonitorConf::table_name())
@@ -279,6 +282,22 @@ impl Service {
         let id: (i32,) = self.repo.get(b.insert()).await?;
 
         Ok(id.0)
+    }
+
+    pub async fn get_monitor_conf_list(
+        &self,
+        filter: MonitorConfListFilter,
+    ) -> Result<Vec<MonitorConf>, Box<dyn Error>> {
+        let mut b = sq::StatementBuilder::new();
+
+        b.table(MonitorConf::table_name())
+            .columns(MonitorConf::columns());
+
+        filter.apply(&mut b);
+
+        let res = self.repo.select(b.select()).await?;
+
+        Ok(res)
     }
 
     async fn init_device_manager(

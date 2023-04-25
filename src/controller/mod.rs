@@ -224,8 +224,20 @@ impl Controller {
         Ok(res.drain(..).map(|v| v.into()).collect())
     }
 
-    pub async fn save_monitor_conf(&self, monitor_conf: MonitorConf) -> Result<i32, Box<dyn Error>> {
+    pub async fn save_monitor_conf(
+        &self,
+        monitor_conf: MonitorConf,
+    ) -> Result<i32, Box<dyn Error>> {
         self.svc.save_monitor_conf(monitor_conf.into()).await
+    }
+
+    pub async fn get_monitor_conf_list(
+        &self,
+        filter: MonitorConfListFilter,
+    ) -> Result<Vec<MonitorConfListEntry>, Box<dyn Error>> {
+        let mut res = self.svc.get_monitor_conf_list(filter.into()).await?;
+
+        Ok(res.drain(..).map(|v| v.into()).collect())
     }
 
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {

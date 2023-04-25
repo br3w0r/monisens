@@ -1,9 +1,9 @@
 use std::vec;
 
 use chrono;
+use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
-use sqlx::{Column, FromRow, Row, TypeInfo, types::Json};
-use serde::{Serialize, Deserialize};
+use sqlx::{types::Json, Column, FromRow, Row, TypeInfo};
 
 use crate::query::integration::isqlx as sq;
 use crate::{
@@ -258,7 +258,7 @@ impl MonitorConf {
     }
 
     // TODO: improve `Table` macros for this case (id mustn't be included when inserting into this table)
-    pub fn insert_columns() -> &'static[&'static str] {
+    pub fn insert_columns() -> &'static [&'static str] {
         &["device_id", "sensor", "typ", "config"]
     }
 }
@@ -297,4 +297,16 @@ pub struct MonitorLogConf {
     pub sort_field: String,
     pub sort_direction: SortDir,
     pub limit: i32,
+}
+
+pub struct MonitorConfListFilter {
+    pub device_id: Option<i32>,
+}
+
+impl MonitorConfListFilter {
+    pub fn apply(&self, b: &mut sq::StatementBuilder) {
+        if let Some(ref device_id) = self.device_id {
+            b.whereq(sq::eq("device_id".into(), device_id.clone()));
+        }
+    }
 }

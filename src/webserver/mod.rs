@@ -24,6 +24,7 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             service::get_device_list,
             service::get_device_sensor_info,
             service::save_monitor_conf,
+            service::get_monitor_conf_list,
         ),
         components(schemas(
             contract::TestUploadForm,
@@ -67,6 +68,10 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             contract::MonitorTypeConf,
             contract::MonitorLogConf,
             contract::SortDir,
+            contract::MonitorConfListRequest,
+            contract::MonitorConfListFilter,
+            contract::MonitorConfListResponse,
+            contract::MonitorConfListEntry,
         ))
     )]
     struct ApiDoc;
@@ -88,6 +93,7 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
                     .service(service::get_sensor_data)
                     .service(service::get_device_list)
                     .service(service::get_device_sensor_info)
+                    .service(service::get_monitor_conf_list)
                     .service(service::save_monitor_conf),
             )
             .service(app::index)

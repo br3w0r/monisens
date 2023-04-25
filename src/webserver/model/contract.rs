@@ -588,7 +588,7 @@ impl From<SaveMonitorConfRequest> for controller::MonitorConf {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub enum MonitorType {
     Log,
 }
@@ -601,7 +601,15 @@ impl From<MonitorType> for controller::MonitorType {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+impl From<controller::MonitorType> for MonitorType {
+    fn from(value: controller::MonitorType) -> Self {
+        match value {
+            controller::MonitorType::Log => MonitorType::Log,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
 }
@@ -614,7 +622,15 @@ impl From<MonitorTypeConf> for controller::MonitorTypeConf {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+impl From<controller::MonitorTypeConf> for MonitorTypeConf {
+    fn from(value: controller::MonitorTypeConf) -> Self {
+        match value {
+            controller::MonitorTypeConf::Log(v) => MonitorTypeConf::Log(v.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct MonitorLogConf {
     pub fields: Vec<String>,
     pub sort_field: String,
@@ -633,7 +649,18 @@ impl From<MonitorLogConf> for controller::MonitorLogConf {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, ToSchema)]
+impl From<controller::MonitorLogConf> for MonitorLogConf {
+    fn from(value: controller::MonitorLogConf) -> Self {
+        Self {
+            fields: value.fields,
+            sort_field: value.sort_field,
+            sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub enum SortDir {
     ASC,
     DESC,
@@ -646,4 +673,62 @@ impl From<SortDir> for controller::SortDir {
             SortDir::DESC => controller::SortDir::DESC,
         }
     }
+}
+
+impl From<controller::SortDir> for SortDir {
+    fn from(value: controller::SortDir) -> Self {
+        match value {
+            controller::SortDir::ASC => SortDir::ASC,
+            controller::SortDir::DESC => SortDir::DESC,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Validate, Deserialize, ToSchema)]
+pub struct MonitorConfListRequest {
+    pub filter: MonitorConfListFilter,
+}
+
+#[derive(Clone, Debug, Validate, Deserialize, ToSchema)]
+pub struct MonitorConfListFilter {
+    pub device_id: i32,
+}
+
+impl From<MonitorConfListFilter> for controller::MonitorConfListFilter {
+    fn from(value: MonitorConfListFilter) -> Self {
+        Self {
+            device_id: value.device_id,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct MonitorConfListResponse {
+    result: Vec<MonitorConfListEntry>,
+}
+
+impl From<Vec<controller::MonitorConfListEntry>> for MonitorConfListResponse {
+    fn from(mut value: Vec<controller::MonitorConfListEntry>) -> Self {
+        MonitorConfListResponse {
+            result: value
+                .drain(..)
+                .map(|v| MonitorConfListEntry {
+                    id: v.id,
+                    device_id: v.device_id,
+                    sensor: v.sensor,
+                    typ: v.typ.into(),
+                    config: v.config.into(),
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct MonitorConfListEntry {
+    pub id: i32,
+    pub device_id: i32,
+    pub sensor: String,
+    pub typ: MonitorType,
+    pub config: MonitorTypeConf,
 }

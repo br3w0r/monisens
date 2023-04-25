@@ -508,6 +508,14 @@ impl From<MonitorType> for service::MonitorType {
     }
 }
 
+impl From<service::MonitorType> for MonitorType {
+    fn from(value: service::MonitorType) -> Self {
+        match value {
+            service::MonitorType::Log => MonitorType::Log,
+        }
+    }
+}
+
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
 }
@@ -516,6 +524,14 @@ impl From<MonitorTypeConf> for service::MonitorTypeConf {
     fn from(value: MonitorTypeConf) -> Self {
         match value {
             MonitorTypeConf::Log(v) => service::MonitorTypeConf::Log(v.into()),
+        }
+    }
+}
+
+impl From<service::MonitorTypeConf> for MonitorTypeConf {
+    fn from(value: service::MonitorTypeConf) -> Self {
+        match value {
+            service::MonitorTypeConf::Log(v) => MonitorTypeConf::Log(v.into()),
         }
     }
 }
@@ -538,6 +554,17 @@ impl From<MonitorLogConf> for service::MonitorLogConf {
     }
 }
 
+impl From<service::MonitorLogConf> for MonitorLogConf {
+    fn from(value: service::MonitorLogConf) -> Self {
+        Self {
+            fields: value.fields,
+            sort_field: value.sort_field,
+            sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
 pub enum SortDir {
     ASC,
     DESC,
@@ -548,6 +575,47 @@ impl From<SortDir> for service::SortDir {
         match value {
             SortDir::ASC => service::SortDir::ASC,
             SortDir::DESC => service::SortDir::DESC,
+        }
+    }
+}
+
+impl From<service::SortDir> for SortDir {
+    fn from(value: service::SortDir) -> Self {
+        match value {
+            service::SortDir::ASC => SortDir::ASC,
+            service::SortDir::DESC => SortDir::DESC,
+        }
+    }
+}
+
+pub struct MonitorConfListFilter {
+    pub device_id: i32,
+}
+
+impl From<MonitorConfListFilter> for service::MonitorConfListFilter {
+    fn from(value: MonitorConfListFilter) -> Self {
+        Self {
+            device_id: Some(value.device_id),
+        }
+    }
+}
+
+pub struct MonitorConfListEntry {
+    pub id: i32,
+    pub device_id: i32,
+    pub sensor: String,
+    pub typ: MonitorType,
+    pub config: MonitorTypeConf,
+}
+
+impl From<service::MonitorConf> for MonitorConfListEntry {
+    fn from(value: service::MonitorConf) -> Self {
+        Self {
+            id: value.id,
+            device_id: value.device_id,
+            sensor: value.sensor,
+            typ: value.typ.into(),
+            config: value.config.0.into(),
         }
     }
 }
