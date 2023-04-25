@@ -2,6 +2,8 @@ use std::{collections::HashMap, ffi::CString};
 
 use crate::{module, service};
 
+use sqlx::types::Json;
+
 pub mod internal {
     use crate::{controller::msg, module, service};
 
@@ -358,8 +360,8 @@ impl From<Sort> for service::Sort {
         Self {
             field: value.field,
             order: match value.order {
-                SortOrder::ASC => service::SortOrder::ASC,
-                SortOrder::DESC => service::SortOrder::DESC,
+                SortOrder::ASC => service::SortDir::ASC,
+                SortOrder::DESC => service::SortDir::DESC,
             },
         }
     }
@@ -471,6 +473,81 @@ impl From<service::SensorDataType> for SensorDataType {
             service::SensorDataType::Timestamp => SensorDataType::Timestamp,
             service::SensorDataType::String => SensorDataType::String,
             service::SensorDataType::JSON => SensorDataType::JSON,
+        }
+    }
+}
+
+pub struct MonitorConf {
+    pub device_id: i32,
+    pub sensor: String,
+    pub typ: MonitorType,
+    pub config: MonitorTypeConf,
+}
+
+impl From<MonitorConf> for service::MonitorConf {
+    fn from(value: MonitorConf) -> Self {
+        Self {
+            id: 0,
+            device_id: value.device_id,
+            sensor: value.sensor,
+            typ: value.typ.into(),
+            config: Json(value.config.into()),
+        }
+    }
+}
+
+pub enum MonitorType {
+    Log,
+}
+
+impl From<MonitorType> for service::MonitorType {
+    fn from(value: MonitorType) -> Self {
+        match value {
+            MonitorType::Log => service::MonitorType::Log,
+        }
+    }
+}
+
+pub enum MonitorTypeConf {
+    Log(MonitorLogConf),
+}
+
+impl From<MonitorTypeConf> for service::MonitorTypeConf {
+    fn from(value: MonitorTypeConf) -> Self {
+        match value {
+            MonitorTypeConf::Log(v) => service::MonitorTypeConf::Log(v.into()),
+        }
+    }
+}
+
+pub struct MonitorLogConf {
+    pub fields: Vec<String>,
+    pub sort_field: String,
+    pub sort_direction: SortDir,
+    pub limit: i32,
+}
+
+impl From<MonitorLogConf> for service::MonitorLogConf {
+    fn from(value: MonitorLogConf) -> Self {
+        Self {
+            fields: value.fields,
+            sort_field: value.sort_field,
+            sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
+pub enum SortDir {
+    ASC,
+    DESC,
+}
+
+impl From<SortDir> for service::SortDir {
+    fn from(value: SortDir) -> Self {
+        match value {
+            SortDir::ASC => service::SortDir::ASC,
+            SortDir::DESC => service::SortDir::DESC,
         }
     }
 }

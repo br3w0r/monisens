@@ -86,7 +86,7 @@ pub struct SensorDataEntry {
 }
 
 pub struct Sensor {
-    /// == sensor's table name
+    /// == sensor's table name // iss-96: this is not true. It's a human-readable name
     pub name: String,
 
     /// key in the [`HashMap`] is equal to [`SensorData`]`.name`

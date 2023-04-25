@@ -224,6 +224,10 @@ impl Controller {
         Ok(res.drain(..).map(|v| v.into()).collect())
     }
 
+    pub async fn save_monitor_conf(&self, monitor_conf: MonitorConf) -> Result<i32, Box<dyn Error>> {
+        self.svc.save_monitor_conf(monitor_conf.into()).await
+    }
+
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device>>, ControllerError> {
         self.devices
             .read()

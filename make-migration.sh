@@ -1,0 +1,1 @@
+sqlx migrate add $1

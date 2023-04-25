@@ -20,6 +20,7 @@ const VALUES: &str = "values";
 const SET: &str = "set";
 const ORDER: &str = "order";
 const LIMIT: &str = "limit";
+const SUFFIX: &str = "suffix";
 
 pub struct StatementBuilder<A> {
     b: Builder<A>,
@@ -100,6 +101,15 @@ impl<A: 'static> StatementBuilder<A> {
                 PredType::String("LIMIT ".to_string() + &limit.to_string()),
                 None,
             )),
+        );
+
+        self
+    }
+
+    pub fn suffix<S: Into<String>>(&mut self, suffix: S) -> &mut Self {
+        self.b.set(
+            SUFFIX.to_string(),
+            Rc::new(Part::new(PredType::String(suffix.into()), None)),
         );
 
         self
@@ -189,6 +199,11 @@ impl<A: 'static> Sqlizer<A> for SelectBuilder<A> {
             sql.push_str(&limit.sql()?.0);
         }
 
+        if let Some(suffix) = self.0.b.get(SUFFIX) {
+            sql.push(' ');
+            sql.push_str(&suffix.sql()?.0);
+        }
+
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
     }
 }
@@ -233,6 +248,11 @@ impl<A: 'static> Sqlizer<A> for InsertBuilder<A> {
         sql.push_str(" VALUES ");
         tool::append_sql(&values, &mut sql, ", ", &mut args)?;
 
+        if let Some(suffix) = self.0.b.get(SUFFIX) {
+            sql.push(' ');
+            sql.push_str(&suffix.sql()?.0);
+        }
+
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
     }
 }
@@ -258,6 +278,11 @@ impl<A: 'static> Sqlizer<A> for DeleteBuilder<A> {
                 sql.push_str(" WHERE ");
                 tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
             }
+        }
+
+        if let Some(suffix) = self.0.b.get(SUFFIX) {
+            sql.push(' ');
+            sql.push_str(&suffix.sql()?.0);
         }
 
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))
@@ -297,6 +322,11 @@ impl<A: 'static> Sqlizer<A> for UpdateBuilder<A> {
                 sql.push_str(" WHERE ");
                 tool::append_sql(&wher, &mut sql, " AND ", &mut args)?;
             }
+        }
+
+        if let Some(suffix) = self.0.b.get(SUFFIX) {
+            sql.push(' ');
+            sql.push_str(&suffix.sql()?.0);
         }
 
         Ok((tool::replace_pos_placeholders(&sql, "$"), Some(args)))

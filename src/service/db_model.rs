@@ -2,7 +2,8 @@ use std::vec;
 
 use chrono;
 use sqlx::postgres::PgRow;
-use sqlx::{Column, FromRow, Row, TypeInfo};
+use sqlx::{Column, FromRow, Row, TypeInfo, types::Json};
+use serde::{Serialize, Deserialize};
 
 use crate::query::integration::isqlx as sq;
 use crate::{
@@ -168,7 +169,7 @@ impl<'r> FromRow<'r, PgRow> for SensorDataRow {
                 "TEXT" => Ok(SensorDataTypeValue::String(row.get(col.ordinal()))),
                 "JSONB" => Ok(SensorDataTypeValue::JSON(row.get(col.ordinal()))),
                 any => Err(sqlx::Error::ColumnDecode {
-                    index: "test".into(),
+                    index: col.name().to_string(),
                     source: SensorDataDecodeError::UnsupportedType(any.to_string()).into(),
                 }),
             }?;
@@ -211,27 +212,89 @@ impl SensorDataFilter {
     }
 }
 
-pub enum SortOrder {
+#[derive(Debug, Serialize, Deserialize)]
+pub enum SortDir {
     ASC,
     DESC,
 }
 
-impl ToString for SortOrder {
+impl ToString for SortDir {
     fn to_string(&self) -> String {
         match self {
-            SortOrder::ASC => "ASC".to_string(),
-            SortOrder::DESC => "DESC".to_string(),
+            SortDir::ASC => "ASC".to_string(),
+            SortDir::DESC => "DESC".to_string(),
         }
     }
 }
 
 pub struct Sort {
     pub field: String,
-    pub order: SortOrder,
+    pub order: SortDir,
 }
 
 impl Sort {
     pub fn apply(&self, b: &mut sq::StatementBuilder) {
         b.order(self.field.clone() + " " + &self.order.to_string());
     }
+}
+
+#[derive(FromRow, Table)]
+pub struct MonitorConf {
+    #[column]
+    pub id: i32,
+    #[column]
+    pub device_id: i32,
+    #[column]
+    pub sensor: String,
+    #[column]
+    pub typ: MonitorType,
+    #[column]
+    pub config: Json<MonitorTypeConf>,
+}
+
+impl MonitorConf {
+    pub fn table_name() -> String {
+        "monitor_conf".into()
+    }
+
+    // TODO: improve `Table` macros for this case (id mustn't be included when inserting into this table)
+    pub fn insert_columns() -> &'static[&'static str] {
+        &["device_id", "sensor", "typ", "config"]
+    }
+}
+
+ref_arg_type!(Json<MonitorTypeConf>);
+arg_from_ty!(Json<MonitorTypeConf>);
+
+impl ValuesTrait for MonitorConf {
+    fn values(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
+        b.values(vec![
+            self.device_id.into(),
+            self.sensor.into(),
+            self.typ.into(),
+            self.config.into(),
+        ]);
+    }
+}
+
+#[derive(sqlx::Type, Debug, PartialEq)]
+#[sqlx(type_name = "monitor_type", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MonitorType {
+    Log,
+}
+
+ref_arg_type!(MonitorType);
+arg_from_ty!(MonitorType);
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum MonitorTypeConf {
+    Log(MonitorLogConf),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MonitorLogConf {
+    pub fields: Vec<String>,
+    pub sort_field: String,
+    pub sort_direction: SortDir,
+    pub limit: i32,
 }

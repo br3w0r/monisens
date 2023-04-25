@@ -163,3 +163,21 @@ pub async fn get_device_sensor_info(
         res.into(),
     ))
 }
+
+#[utoipa::path(
+    context_path = "/service",
+    request_body(content = SaveMonitorConfRequest, content_type = "application/json"),
+    responses(
+        (status = 200, description = "Ok response", body = SaveMonitorConfResponse),
+        (status = 500, description = "Server error response"),
+    ),
+)]
+#[post("/save-monitor-conf")]
+pub async fn save_monitor_conf(
+    data: web::Data<State>,
+    req: Json<contract::SaveMonitorConfRequest>,
+) -> Result<impl Responder> {
+    let id = data.ctrl.save_monitor_conf(req.0.into()).await?;
+
+    Ok(web::Json(contract::SaveMonitorConfResponse { id }))
+}

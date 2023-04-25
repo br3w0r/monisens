@@ -561,3 +561,89 @@ impl From<controller::SensorDataType> for SensorDataType {
         }
     }
 }
+
+#[derive(Clone, Debug, Validate, Deserialize, ToSchema)]
+pub struct SaveMonitorConfRequest {
+    #[validate(range(min = 1))]
+    pub device_id: i32,
+    #[validate(length(min = 1))]
+    pub sensor: String,
+    pub typ: MonitorType,
+    pub config: MonitorTypeConf,
+}
+
+#[derive(Clone, Debug, Serialize, ToSchema)]
+pub struct SaveMonitorConfResponse {
+    pub id: i32,
+}
+
+impl From<SaveMonitorConfRequest> for controller::MonitorConf {
+    fn from(value: SaveMonitorConfRequest) -> Self {
+        Self {
+            device_id: value.device_id,
+            sensor: value.sensor,
+            typ: value.typ.into(),
+            config: value.config.into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub enum MonitorType {
+    Log,
+}
+
+impl From<MonitorType> for controller::MonitorType {
+    fn from(value: MonitorType) -> Self {
+        match value {
+            MonitorType::Log => controller::MonitorType::Log,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub enum MonitorTypeConf {
+    Log(MonitorLogConf),
+}
+
+impl From<MonitorTypeConf> for controller::MonitorTypeConf {
+    fn from(value: MonitorTypeConf) -> Self {
+        match value {
+            MonitorTypeConf::Log(v) => controller::MonitorTypeConf::Log(v.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub struct MonitorLogConf {
+    pub fields: Vec<String>,
+    pub sort_field: String,
+    pub sort_direction: SortDir,
+    pub limit: i32,
+}
+
+impl From<MonitorLogConf> for controller::MonitorLogConf {
+    fn from(value: MonitorLogConf) -> Self {
+        Self {
+            fields: value.fields,
+            sort_field: value.sort_field,
+            sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, ToSchema)]
+pub enum SortDir {
+    ASC,
+    DESC,
+}
+
+impl From<SortDir> for controller::SortDir {
+    fn from(value: SortDir) -> Self {
+        match value {
+            SortDir::ASC => controller::SortDir::ASC,
+            SortDir::DESC => controller::SortDir::DESC,
+        }
+    }
+}
