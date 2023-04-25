@@ -186,7 +186,7 @@ pub async fn save_monitor_conf(
     context_path = "/service",
     request_body(content = MonitorConfListRequest, content_type = "application/json"),
     responses(
-        (status = 200, description = "Ok response", body = GetDeviceListResponse),
+        (status = 200, description = "Ok response", body = MonitorConfListResponse),
         (status = 500, description = "Server error response"),
     ),
 )]
