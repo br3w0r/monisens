@@ -97,8 +97,6 @@ impl Service {
             .table(db_model::DeviceSensor::table_name())
             .columns(db_model::DeviceSensor::columns());
 
-        let device_name = self.device_manager.get_device_name(&device_id)?;
-
         for (i, sensor) in sensors.iter().enumerate() {
             if let Err(err) = base_validate_name(&sensor.name) {
                 return Err(Box::new(ServiceError::NameValidationErr(
@@ -113,12 +111,13 @@ impl Service {
                 )));
             }
 
-            let table_name = sensor_table_name(device_id, &device_name, &sensor.name);
+            let table_name = sensor_table_name(device_id.get_raw(), &sensor.name);
             let mut table = table::Table::new(table_name.clone())?;
 
             db_model::DeviceSensor {
                 device_id: device_id.get_raw(),
-                sensor_table_name: table_name,
+                sensor_name: sensor.name.clone(),
+                sensor_table_name: table_name.clone(),
             }
             .values(&mut device_sensor_query);
 
@@ -215,8 +214,7 @@ impl Service {
         data_list: Vec<SensorData>,
     ) -> Result<(), Box<dyn Error>> {
         // TODO: data validation?
-        let device_name = self.device_manager.get_device_name(&id)?;
-        let table_name = quote_string(&sensor_table_name(id, &device_name, &sensor_name));
+        let table_name = quote_string(&sensor_table_name(id.get_raw(), &sensor_name));
         let mut b = sq::StatementBuilder::new();
 
         let mut cols = Vec::with_capacity(data_list.len());
@@ -241,8 +239,7 @@ impl Service {
         fields: Vec<String>,
         filter: db_model::SensorDataFilter,
     ) -> Result<Vec<SensorDataRow>, Box<dyn Error>> {
-        let device_name = self.device_manager.get_device_name(&id)?;
-        let table_name = quote_string(&sensor_table_name(id, &device_name, &sensor_name));
+        let table_name = quote_string(&sensor_table_name(id.get_raw(), &sensor_name));
 
         let mut b = sq::StatementBuilder::new();
 
@@ -319,7 +316,7 @@ impl Service {
 
         let mut sensor_table_names: HashSet<String> = HashSet::new();
         for device_sensor in device_sensors.iter() {
-            sensor_table_names.insert(device_sensor.sensor_table_name.to_string());
+            sensor_table_names.insert(device_sensor.sensor_table_name.clone());
         }
 
         let sensor_table_names: Vec<String> = sensor_table_names.drain().collect();
@@ -349,8 +346,8 @@ fn base_validate_name(s: &str) -> Result<(), validation::ValidationError> {
     validation::validate_snake_case(s)
 }
 
-fn sensor_table_name(device_id: DeviceID, device_name: &str, sensor_name: &str) -> String {
-    device_id.get_raw().to_string() + "-" + device_name + "__" + sensor_name
+fn sensor_table_name(device_id: i32, sensor_name: &str) -> String {
+    device_id.to_string() + "__" + sensor_name
 }
 
 fn quote_string(s: &str) -> String {

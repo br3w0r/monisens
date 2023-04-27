@@ -72,6 +72,8 @@ pub struct DeviceSensor {
     #[column]
     pub device_id: i32,
     #[column]
+    pub sensor_name: String,
+    #[column]
     pub sensor_table_name: String,
 }
 
@@ -83,7 +85,11 @@ impl DeviceSensor {
 
 impl ValuesTrait for DeviceSensor {
     fn values(self, b: &mut crate::query::integration::isqlx::StatementBuilder) {
-        b.values(vec![self.device_id.into(), self.sensor_table_name.into()]);
+        b.values(vec![
+            self.device_id.into(),
+            self.sensor_name.into(),
+            self.sensor_table_name.into(),
+        ]);
     }
 }
 

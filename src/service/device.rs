@@ -240,7 +240,7 @@ impl DeviceManager {
 
                 device
                     .sensor_map
-                    .insert(device_sensor.sensor_table_name.clone(), sensor);
+                    .insert(device_sensor.sensor_name.clone(), sensor);
             }
         }
 
