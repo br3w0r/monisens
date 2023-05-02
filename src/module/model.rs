@@ -13,6 +13,7 @@ pub enum ConnParamType {
     Int,
     Float,
     String,
+    ChoiceList,
 }
 
 impl From<bg::ConnParamType> for ConnParamType {
@@ -22,6 +23,7 @@ impl From<bg::ConnParamType> for ConnParamType {
             bg::ConnParamType::ConnParamInt => ConnParamType::Int,
             bg::ConnParamType::ConnParamFloat => ConnParamType::Float,
             bg::ConnParamType::ConnParamString => ConnParamType::String,
+            bg::ConnParamType::ConnParamChoiceList => ConnParamType::ChoiceList,
         }
     }
 }
@@ -30,6 +32,17 @@ impl From<bg::ConnParamType> for ConnParamType {
 pub struct ConnParamInfo {
     pub name: String,
     pub typ: ConnParamType,
+    pub info: Option<ConnParamEntryInfo>,
+}
+
+#[derive(Debug)]
+pub enum ConnParamEntryInfo {
+    ChoiceList(ConnParamChoiceListInfo),
+}
+
+#[derive(Debug)]
+pub struct ConnParamChoiceListInfo {
+    pub choices: Vec<String>,
 }
 
 pub type DeficeInfoRec = Result<Vec<ConnParamInfo>, ModuleError>;
@@ -54,10 +67,10 @@ fn device_connect_info(res: *mut DeficeInfoRec, info: *const bg::DeviceConnectIn
     let len = unsafe { (*info).connection_params_len as usize };
     let mut device_connect_info: Vec<ConnParamInfo> = Vec::with_capacity(len);
 
-    let s = unsafe { std::slice::from_raw_parts((*info).connection_params, len) };
+    let params = unsafe { std::slice::from_raw_parts((*info).connection_params, len) };
 
-    for i in s {
-        if i.name.is_null() {
+    for param in params {
+        if param.name.is_null() {
             unsafe {
                 *res = Err(ModuleError::InvalidPointer(
                     "device_connect_info.connection_params[i].name",
@@ -66,20 +79,33 @@ fn device_connect_info(res: *mut DeficeInfoRec, info: *const bg::DeviceConnectIn
             return;
         }
 
-        match unsafe { CStr::from_ptr(i.name).to_str() } {
-            Err(err) => {
-                unsafe {
-                    *res = Err(ModuleError::StrError(err.into()));
-                }
-                return;
+        let name = str_from_c_char(param.name);
+
+        let info = match param.typ {
+            bg::ConnParamType::ConnParamChoiceList => {
+                let raw_info = param.info as *const bg::ConnParamChoiceListInfo;
+
+                let choices = unsafe {
+                    std::slice::from_raw_parts(
+                        (*raw_info).choices,
+                        (*raw_info).chioces_len as usize,
+                    )
+                };
+
+                let res = ConnParamChoiceListInfo {
+                    choices: choices.iter().map(|v| str_from_c_char(*v)).collect(),
+                };
+
+                Some(ConnParamEntryInfo::ChoiceList(res))
             }
-            Ok(s) => {
-                device_connect_info.push(ConnParamInfo {
-                    name: s.to_string(),
-                    typ: i.typ.into(),
-                });
-            }
-        }
+            _ => None,
+        };
+
+        device_connect_info.push(ConnParamInfo {
+            name: name,
+            typ: param.typ.into(),
+            info,
+        });
     }
 
     unsafe {

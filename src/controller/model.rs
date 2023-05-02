@@ -35,6 +35,7 @@ pub enum ConnParamType {
     Int,
     Float,
     String,
+    ChoiceList,
 }
 
 impl From<module::ConnParamType> for ConnParamType {
@@ -44,14 +45,36 @@ impl From<module::ConnParamType> for ConnParamType {
             module::ConnParamType::Int => ConnParamType::Int,
             module::ConnParamType::Float => ConnParamType::Float,
             module::ConnParamType::String => ConnParamType::String,
+            module::ConnParamType::ChoiceList => ConnParamType::ChoiceList,
         }
     }
+}
+
+#[derive(Debug)]
+pub enum ConnParamEntryInfo {
+    ChoiceList(ConnParamChoiceListInfo),
+}
+
+impl From<module::ConnParamEntryInfo> for ConnParamEntryInfo {
+    fn from(value: module::ConnParamEntryInfo) -> Self {
+        match value {
+            module::ConnParamEntryInfo::ChoiceList(v) => {
+                ConnParamEntryInfo::ChoiceList(ConnParamChoiceListInfo { choices: v.choices })
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ConnParamChoiceListInfo {
+    pub choices: Vec<String>,
 }
 
 #[derive(Debug)]
 pub struct ConnParamConf {
     pub name: String,
     pub typ: ConnParamType,
+    pub info: Option<ConnParamEntryInfo>,
 }
 
 impl From<module::ConnParamInfo> for ConnParamConf {
@@ -59,6 +82,7 @@ impl From<module::ConnParamInfo> for ConnParamConf {
         Self {
             name: value.name,
             typ: value.typ.into(),
+            info: value.info.map(|v| v.into()),
         }
     }
 }

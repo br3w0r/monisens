@@ -8,13 +8,21 @@ typedef enum
     ConnParamBool,
     ConnParamInt,
     ConnParamFloat,
-    ConnParamString
+    ConnParamString,
+    ConnParamChoiceList
 } ConnParamType;
+
+typedef struct
+{
+    char **choices;
+    int32_t chioces_len;
+} ConnParamChoiceListInfo;
 
 typedef struct
 {
     char *name;
     ConnParamType typ;
+    void *info;
 } ConnParamInfo;
 
 typedef struct

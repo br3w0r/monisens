@@ -12,8 +12,8 @@ use model::*;
 pub use self::error::*;
 
 pub use model::{
-    CommonMsg, ConnParam, ConnParamInfo, ConnParamType, ConnParamValType, DeviceConfEntry,
-    DeviceConfInfo, DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType,
+    CommonMsg, ConnParam, ConnParamEntryInfo, ConnParamInfo, ConnParamType, ConnParamValType,
+    DeviceConfEntry, DeviceConfInfo, DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType,
     DeviceConnectConf, Message, MessageType, MsgCode, MsgHandler, SensorDataType, SensorMsg,
     SensorMsgData, SensorMsgDataType, SensorTypeInfo,
 };

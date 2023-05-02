@@ -9,12 +9,56 @@ pub enum ConnParamType {
     ConnParamInt = 1,
     ConnParamFloat = 2,
     ConnParamString = 3,
+    ConnParamChoiceList = 4,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ConnParamChoiceListInfo {
+    pub choices: *mut *mut ::std::os::raw::c_char,
+    pub chioces_len: i32,
+}
+#[test]
+fn bindgen_test_layout_ConnParamChoiceListInfo() {
+    const UNINIT: ::std::mem::MaybeUninit<ConnParamChoiceListInfo> =
+        ::std::mem::MaybeUninit::uninit();
+    let ptr = UNINIT.as_ptr();
+    assert_eq!(
+        ::std::mem::size_of::<ConnParamChoiceListInfo>(),
+        16usize,
+        concat!("Size of: ", stringify!(ConnParamChoiceListInfo))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<ConnParamChoiceListInfo>(),
+        8usize,
+        concat!("Alignment of ", stringify!(ConnParamChoiceListInfo))
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).choices) as usize - ptr as usize },
+        0usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(ConnParamChoiceListInfo),
+            "::",
+            stringify!(choices)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).chioces_len) as usize - ptr as usize },
+        8usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(ConnParamChoiceListInfo),
+            "::",
+            stringify!(chioces_len)
+        )
+    );
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ConnParamInfo {
     pub name: *mut ::std::os::raw::c_char,
     pub typ: ConnParamType,
+    pub info: *mut ::std::os::raw::c_void,
 }
 #[test]
 fn bindgen_test_layout_ConnParamInfo() {
@@ -22,7 +66,7 @@ fn bindgen_test_layout_ConnParamInfo() {
     let ptr = UNINIT.as_ptr();
     assert_eq!(
         ::std::mem::size_of::<ConnParamInfo>(),
-        16usize,
+        24usize,
         concat!("Size of: ", stringify!(ConnParamInfo))
     );
     assert_eq!(
@@ -48,6 +92,16 @@ fn bindgen_test_layout_ConnParamInfo() {
             stringify!(ConnParamInfo),
             "::",
             stringify!(typ)
+        )
+    );
+    assert_eq!(
+        unsafe { ::std::ptr::addr_of!((*ptr).info) as usize - ptr as usize },
+        16usize,
+        concat!(
+            "Offset of field: ",
+            stringify!(ConnParamInfo),
+            "::",
+            stringify!(info)
         )
     );
 }

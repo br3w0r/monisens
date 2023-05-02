@@ -131,7 +131,8 @@ impl Controller {
 
             device.module.configure_device(&mut device_conf)?;
 
-            let sensor = service_sensor_from_module(device.module.obtain_sensor_type_infos()?);
+            let sensor_infos = device.module.obtain_sensor_type_infos()?;
+            let sensor = service_sensor_from_module(sensor_infos);
 
             self.svc.device_sensor_init(device.id, sensor).await?;
         }

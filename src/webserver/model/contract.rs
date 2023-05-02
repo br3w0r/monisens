@@ -39,9 +39,30 @@ impl From<controller::DeviceInitData> for DeviceStartInitResponse {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
+pub enum ConnParamEntryInfo {
+    ChoiceList(ConnParamChoiceListInfo),
+}
+
+impl From<controller::ConnParamEntryInfo> for ConnParamEntryInfo {
+    fn from(value: controller::ConnParamEntryInfo) -> Self {
+        match value {
+            controller::ConnParamEntryInfo::ChoiceList(v) => {
+                ConnParamEntryInfo::ChoiceList(ConnParamChoiceListInfo { choices: v.choices })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ConnParamChoiceListInfo {
+    pub choices: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub struct ConnParamConf {
     pub name: String,
     pub typ: ConnParamType,
+    pub info: Option<ConnParamEntryInfo>,
 }
 
 impl From<controller::ConnParamConf> for ConnParamConf {
@@ -49,6 +70,7 @@ impl From<controller::ConnParamConf> for ConnParamConf {
         Self {
             name: value.name,
             typ: value.typ.into(),
+            info: value.info.map(|v| v.into()),
         }
     }
 }
@@ -59,6 +81,7 @@ pub enum ConnParamType {
     Int,
     Float,
     String,
+    ChoiceList,
 }
 
 impl From<controller::ConnParamType> for ConnParamType {
@@ -68,6 +91,7 @@ impl From<controller::ConnParamType> for ConnParamType {
             controller::ConnParamType::Int => ConnParamType::Int,
             controller::ConnParamType::Float => ConnParamType::Float,
             controller::ConnParamType::String => ConnParamType::String,
+            controller::ConnParamType::ChoiceList => ConnParamType::ChoiceList,
         }
     }
 }
