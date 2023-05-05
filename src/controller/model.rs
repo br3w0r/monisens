@@ -343,9 +343,9 @@ impl GetSensorDataPayload {
 
         if let Some(ref from) = self.from {
             if self.sort.order == SortOrder::ASC {
-                res.from = Some((self.sort.field.clone(), from.clone().into()));
-            } else {
                 res.to = Some((self.sort.field.clone(), from.clone().into()));
+            } else {
+                res.from = Some((self.sort.field.clone(), from.clone().into()));
             }
         }
 
