@@ -287,6 +287,7 @@ impl ValuesTrait for MonitorConf {
 #[sqlx(type_name = "monitor_type", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MonitorType {
     Log,
+    Line,
 }
 
 ref_arg_type!(MonitorType);
@@ -295,6 +296,7 @@ arg_from_ty!(MonitorType);
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
+    Line(MonitorLineConf),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -302,6 +304,13 @@ pub struct MonitorLogConf {
     pub fields: Vec<String>,
     pub sort_field: String,
     pub sort_direction: SortDir,
+    pub limit: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MonitorLineConf {
+    pub x_field: String,
+    pub y_field: String,
     pub limit: i32,
 }
 

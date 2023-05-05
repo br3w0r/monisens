@@ -12,8 +12,9 @@ use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
 use crate::{repo, table, tool::validation};
 
 pub use db_model::{
-    MonitorConf, MonitorConfListFilter, MonitorLogConf, MonitorType, MonitorTypeConf, SensorData,
-    SensorDataFilter, SensorDataRow, SensorDataTypeValue, Sort, SortDir,
+    MonitorConf, MonitorConfListFilter, MonitorLineConf, MonitorLogConf, MonitorType,
+    MonitorTypeConf, SensorData, SensorDataFilter, SensorDataRow, SensorDataTypeValue, Sort,
+    SortDir,
 };
 pub use device::{
     DeviceID, DeviceInfo, DeviceInitState, Sensor, SensorDataEntry, SensorDataType, SensorInfo,

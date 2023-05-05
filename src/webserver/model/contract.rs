@@ -615,12 +615,14 @@ impl From<SaveMonitorConfRequest> for controller::MonitorConf {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub enum MonitorType {
     Log,
+    Line,
 }
 
 impl From<MonitorType> for controller::MonitorType {
     fn from(value: MonitorType) -> Self {
         match value {
             MonitorType::Log => controller::MonitorType::Log,
+            MonitorType::Line => controller::MonitorType::Line,
         }
     }
 }
@@ -629,6 +631,7 @@ impl From<controller::MonitorType> for MonitorType {
     fn from(value: controller::MonitorType) -> Self {
         match value {
             controller::MonitorType::Log => MonitorType::Log,
+            controller::MonitorType::Line => MonitorType::Line,
         }
     }
 }
@@ -636,12 +639,14 @@ impl From<controller::MonitorType> for MonitorType {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
+    Line(MonitorLineConf),
 }
 
 impl From<MonitorTypeConf> for controller::MonitorTypeConf {
     fn from(value: MonitorTypeConf) -> Self {
         match value {
             MonitorTypeConf::Log(v) => controller::MonitorTypeConf::Log(v.into()),
+            MonitorTypeConf::Line(v) => controller::MonitorTypeConf::Line(v.into()),
         }
     }
 }
@@ -650,6 +655,7 @@ impl From<controller::MonitorTypeConf> for MonitorTypeConf {
     fn from(value: controller::MonitorTypeConf) -> Self {
         match value {
             controller::MonitorTypeConf::Log(v) => MonitorTypeConf::Log(v.into()),
+            controller::MonitorTypeConf::Line(v) => MonitorTypeConf::Line(v.into()),
         }
     }
 }
@@ -679,6 +685,33 @@ impl From<controller::MonitorLogConf> for MonitorLogConf {
             fields: value.fields,
             sort_field: value.sort_field,
             sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
+pub struct MonitorLineConf {
+    pub x_field: String,
+    pub y_field: String,
+    pub limit: i32,
+}
+
+impl From<MonitorLineConf> for controller::MonitorLineConf {
+    fn from(value: MonitorLineConf) -> Self {
+        Self {
+            x_field: value.x_field,
+            y_field: value.y_field,
+            limit: value.limit,
+        }
+    }
+}
+
+impl From<controller::MonitorLineConf> for MonitorLineConf {
+    fn from(value: controller::MonitorLineConf) -> Self {
+        Self {
+            x_field: value.x_field,
+            y_field: value.y_field,
             limit: value.limit,
         }
     }

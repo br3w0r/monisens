@@ -74,6 +74,7 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             contract::MonitorConfListEntry,
             contract::ConnParamEntryInfo,
             contract::ConnParamChoiceListInfo,
+            contract::MonitorLineConf,
         ))
     )]
     struct ApiDoc;

@@ -1,4 +1,4 @@
-create type monitor_type as enum ('LOG');
+create type monitor_type as enum ('LOG', 'LINE');
 
 create table monitor_conf (
     id serial primary key,

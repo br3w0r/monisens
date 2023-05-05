@@ -522,12 +522,14 @@ impl From<MonitorConf> for service::MonitorConf {
 
 pub enum MonitorType {
     Log,
+    Line,
 }
 
 impl From<MonitorType> for service::MonitorType {
     fn from(value: MonitorType) -> Self {
         match value {
             MonitorType::Log => service::MonitorType::Log,
+            MonitorType::Line => service::MonitorType::Line,
         }
     }
 }
@@ -536,18 +538,21 @@ impl From<service::MonitorType> for MonitorType {
     fn from(value: service::MonitorType) -> Self {
         match value {
             service::MonitorType::Log => MonitorType::Log,
+            service::MonitorType::Line => MonitorType::Line,
         }
     }
 }
 
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
+    Line(MonitorLineConf),
 }
 
 impl From<MonitorTypeConf> for service::MonitorTypeConf {
     fn from(value: MonitorTypeConf) -> Self {
         match value {
             MonitorTypeConf::Log(v) => service::MonitorTypeConf::Log(v.into()),
+            MonitorTypeConf::Line(v) => service::MonitorTypeConf::Line(v.into()),
         }
     }
 }
@@ -556,6 +561,7 @@ impl From<service::MonitorTypeConf> for MonitorTypeConf {
     fn from(value: service::MonitorTypeConf) -> Self {
         match value {
             service::MonitorTypeConf::Log(v) => MonitorTypeConf::Log(v.into()),
+            service::MonitorTypeConf::Line(v) => MonitorTypeConf::Line(v.into()),
         }
     }
 }
@@ -584,6 +590,32 @@ impl From<service::MonitorLogConf> for MonitorLogConf {
             fields: value.fields,
             sort_field: value.sort_field,
             sort_direction: value.sort_direction.into(),
+            limit: value.limit,
+        }
+    }
+}
+
+pub struct MonitorLineConf {
+    pub x_field: String,
+    pub y_field: String,
+    pub limit: i32,
+}
+
+impl From<MonitorLineConf> for service::MonitorLineConf {
+    fn from(value: MonitorLineConf) -> Self {
+        Self {
+            x_field: value.x_field,
+            y_field: value.y_field,
+            limit: value.limit,
+        }
+    }
+}
+
+impl From<service::MonitorLineConf> for MonitorLineConf {
+    fn from(value: service::MonitorLineConf) -> Self {
+        Self {
+            x_field: value.x_field,
+            y_field: value.y_field,
             limit: value.limit,
         }
     }
