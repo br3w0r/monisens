@@ -6,5 +6,6 @@ pub struct DeviceInitData {
     pub module_dir: String,
     pub module_file: String,
     pub data_dir: String,
+    pub full_data_dir: String,
     pub init_state: device::DeviceInitState,
 }

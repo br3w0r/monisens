@@ -35,7 +35,7 @@ impl Controller {
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let mut m = module::Module::new(&data.module_file)?;
+            let mut m = module::Module::new(&data.module_file, &data.full_data_dir)?;
 
             let msg_handler = if data.init_state == service::DeviceInitState::Sensors {
                 let msg_handler = msg::Handler::new(data.id, svc.clone(), tokio_handle.clone());
@@ -72,7 +72,10 @@ impl Controller {
         let device_init_data = self.svc.start_device_init(name, module_file).await?;
 
         let res = {
-            let mut m = module::Module::new(&device_init_data.module_file)?;
+            let mut m = module::Module::new(
+                &device_init_data.module_file,
+                &device_init_data.full_data_dir,
+            )?;
             let mut device_info = m.obtain_device_info()?;
 
             self.devices.write().unwrap().insert(

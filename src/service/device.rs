@@ -302,7 +302,8 @@ impl DeviceManager {
         Ok(model::DeviceInitData {
             id,
             module_file: full_module_path,
-            data_dir,
+            data_dir: data_dir.clone(),
+            full_data_dir: self.full_data_dir(&data_dir),
             module_dir,
             init_state: DeviceInitState::Device,
         })
@@ -369,7 +370,8 @@ impl DeviceManager {
             res.push(model::DeviceInitData {
                 id: id.clone(),
                 module_dir: data.module_dir.clone(),
-                data_dir: self.full_data_dir(&data.data_dir),
+                data_dir: data.data_dir.clone(),
+                full_data_dir: self.full_data_dir(&data.data_dir),
                 module_file: self.full_module_file_path(&data.module_dir),
                 init_state: data.init_state.clone(),
             })

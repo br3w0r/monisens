@@ -1268,8 +1268,12 @@ pub type mod_version_fn = ::std::option::Option<unsafe extern "C" fn() -> u8>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct Functions {
-    pub init:
-        ::std::option::Option<unsafe extern "C" fn(handler: *mut *mut ::std::os::raw::c_void)>,
+    pub init: ::std::option::Option<
+        unsafe extern "C" fn(
+            handler: *mut *mut ::std::os::raw::c_void,
+            data_dir: *mut ::std::os::raw::c_char,
+        ),
+    >,
     pub obtain_device_info: ::std::option::Option<
         unsafe extern "C" fn(
             handler: *mut ::std::os::raw::c_void,

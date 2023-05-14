@@ -258,7 +258,7 @@ typedef uint8_t (*mod_version_fn)();
 
 typedef struct
 {
-    void (*init)(void **handler);
+    void (*init)(void **handler, char *data_dir);
     void (*obtain_device_info)(void *handler, void *obj, device_info_callback callback);
     void (*destroy)(void *handler);
     uint8_t (*connect_device)(void *handler, DeviceConnectConf *connect_info);

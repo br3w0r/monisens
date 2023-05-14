@@ -4,7 +4,7 @@ mod model;
 
 use libc::c_void;
 use libloading::{self, Symbol};
-use std::error::Error;
+use std::{error::Error, ffi::CString};
 
 use bindings_gen as bg;
 use model::*;
@@ -36,10 +36,10 @@ impl Drop for Module {
 }
 
 impl Module {
-    pub fn new(path: &str) -> Result<Module, Box<dyn Error>> {
+    pub fn new(mod_path: &str, data_dir: &str) -> Result<Module, Box<dyn Error>> {
         // TODO: unsafe {} where it's really unsafe
         unsafe {
-            let lib = libloading::Library::new(path)?;
+            let lib = libloading::Library::new(mod_path)?;
 
             // Check module version
             let mod_ver_fn: Symbol<bg::mod_version_fn> = lib.get(b"mod_version")?;
@@ -53,7 +53,9 @@ impl Module {
             let funcs = funcs_fn.unwrap()();
 
             let mut handler = Handle::new();
-            funcs.init.unwrap()(handler.handler_ptr());
+
+            let data_dir_c = CString::new(data_dir)?;
+            funcs.init.unwrap()(handler.handler_ptr(), data_dir_c.as_ptr() as _);
 
             if handler.is_null() {
                 return Err(ModuleError::InvalidPointer("handle.0").into());
