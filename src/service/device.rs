@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
@@ -252,6 +253,7 @@ impl DeviceManager {
 
         // TODO: Replace with logger
         println!("Inited DeviceManager with data_dir = {}", &res.data_dir);
+        std::io::stdout().flush().unwrap();
 
         Ok(res)
     }
@@ -471,11 +473,18 @@ impl Default for DeviceManager {
 }
 
 fn check_and_return_base_dir() -> String {
+    println!("Initializing base dir...");
+    std::io::stdout().flush().unwrap();
+
+    #[cfg(windows)]
+    let path = app::data_dir() + "device\\";
+    #[cfg(unix)]
     let path = app::data_dir() + "device/";
+
     let p = Path::new(&path);
 
     if !p.is_dir() {
-        std::fs::create_dir(p).unwrap();
+        std::fs::create_dir(p).expect(&format!("failed to create base dir: '{path}'"));
     }
 
     path

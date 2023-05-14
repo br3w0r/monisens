@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::Write;
 
 use tokio::runtime::Handle;
 
@@ -16,12 +17,16 @@ mod webserver;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let conf = controller::Conf::new()
-        .with_repo_dsn("postgres://postgres:pgpass@localhost:5433/monisens".into());
+        .with_repo_dsn("postgres://postgres:pgpass@10.211.55.2:5433/monisens".into());
 
     let ctrl = controller::Controller::new(conf, Handle::current()).await?;
 
     println!("Starting web server...");
-    webserver::start_server(ctrl).await
+    std::io::stdout().flush().unwrap();
+
+    webserver::start_server(ctrl).await?;
+
+    Ok(())
 }
 
 // fn error_parser<T: Any>(err: T) -> Option<String> {

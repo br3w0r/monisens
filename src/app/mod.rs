@@ -23,7 +23,14 @@ pub fn data_dir() -> String {
 
 #[cfg(target_os = "windows")]
 pub fn data_dir() -> String {
-    let path = std::env::var("APP_DATA").expect("no APP_DATA env var") + "/.monisens/";
+    let mut path = std::env::current_exe()
+        .expect("failed to get current exe path");
+    path.pop();
+    
+    let path = path.to_str()
+        .unwrap()
+        .to_string()
+        + "\\.monisens\\";
     check_and_create_data_dir(&path);
 
     path
@@ -36,7 +43,7 @@ fn check_and_create_data_dir(path: &str) {
 
     let p = Path::new(path);
     if !p.is_dir() {
-        fs::create_dir(p).unwrap();
+        fs::create_dir(p).expect(&format!("failed to create dir: '{path}'"));
     }
 
     IS_PATH_CHECKED.store(true, Ordering::SeqCst);

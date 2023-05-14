@@ -105,9 +105,10 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             .service(SwaggerUi::new("/docs/{_:.*}").url("/swagger.json", ApiDoc::openapi()))
             .service(web::redirect("/docs", "/docs/"))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", 8888)).unwrap()
     .run()
-    .await?;
+    .await
+    .unwrap();
 
     Ok(())
 }

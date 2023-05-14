@@ -1,1 +1,0 @@
-import{d as s,u as t,c as a,o,F as n,a as e,_ as r}from"./index.7f38bfa0.js";const i="/static/shrug.0d73daa4.webp",_=e("div",null,"This is a Favourites page",-1),c=e("img",{src:i},null,-1),u=s({__name:"Favourites",setup(d){return t(),(p,l)=>(o(),a(n,null,[_,c],64))}}),v=r(u,[["__file","/Users/daniildirun/dev/monisens-frontend/src/views/Favourites.vue"]]);export{v as default};
