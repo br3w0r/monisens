@@ -4,7 +4,7 @@ mod model;
 
 use libc::c_void;
 use libloading::{self, Symbol};
-use std::{error::Error, ffi::CString};
+use std::{error::Error, ffi::CString, path::Path};
 
 use bindings_gen as bg;
 use model::*;
@@ -36,10 +36,10 @@ impl Drop for Module {
 }
 
 impl Module {
-    pub fn new(mod_path: &str, data_dir: &str) -> Result<Module, Box<dyn Error>> {
+    pub fn new<P: AsRef<Path>>(mod_path: P, data_dir: P) -> Result<Module, Box<dyn Error>> {
         // TODO: unsafe {} where it's really unsafe
         unsafe {
-            let lib = libloading::Library::new(mod_path)?;
+            let lib = libloading::Library::new(mod_path.as_ref().as_os_str())?;
 
             // Check module version
             let mod_ver_fn: Symbol<bg::mod_version_fn> = lib.get(b"mod_version")?;
@@ -54,7 +54,17 @@ impl Module {
 
             let mut handler = Handle::new();
 
-            let data_dir_c = CString::new(data_dir)?;
+            let data_dir_str = data_dir
+                .as_ref()
+                .to_str()
+                .ok_or(Box::new(ModuleError::InvalidDataPath))?;
+
+            #[cfg(unix)]
+            let data_dir_str = data_dir_str.to_string() + "/";
+            #[cfg(windows)]
+            let data_dir_str = data_dir_str.to_string() + "\\";
+
+            let data_dir_c = CString::new(data_dir_str)?;
             funcs.init.unwrap()(handler.handler_ptr(), data_dir_c.as_ptr() as _);
 
             if handler.is_null() {

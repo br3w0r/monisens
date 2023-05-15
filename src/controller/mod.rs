@@ -35,26 +35,23 @@ impl Controller {
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let mut m = module::Module::new(&data.module_file, &data.full_data_dir)?;
+            let m = module::Module::new(&data.module_file, &data.full_data_dir)?;
+            let device = Arc::new(Mutex::new(Device {
+                id: data.id,
+                module: m,
+                msg_handler: None,
+            }));
 
-            let msg_handler = if data.init_state == service::DeviceInitState::Sensors {
+            if data.init_state == service::DeviceInitState::Sensors {
+                let mut device = device.lock().unwrap();
                 let msg_handler = msg::Handler::new(data.id, svc.clone(), tokio_handle.clone());
 
-                m.start(msg_handler.clone())?;
+                device.module.start(msg_handler.clone())?;
 
-                Some(msg_handler)
-            } else {
-                None
-            };
+                device.msg_handler = Some(msg_handler);
+            }
 
-            mods.insert(
-                data.id.get_raw(),
-                Arc::new(Mutex::new(Device {
-                    id: data.id,
-                    module: m,
-                    msg_handler: msg_handler,
-                })),
-            );
+            mods.insert(data.id.get_raw(), device);
         }
 
         Ok(Self {

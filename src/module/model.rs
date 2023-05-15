@@ -800,7 +800,9 @@ pub extern "C" fn handle_msg_callback(handler: *mut c_void, msg_data: bg::Messag
     let h = handler as *const MsgHandle;
 
     unsafe {
-        (*h).0.handle_msg(msg_data.into());
+        let data = msg_data.into();
+        let h = &(*h).0;
+        h.handle_msg(data);
     }
 }
 

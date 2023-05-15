@@ -14,6 +14,8 @@ pub enum ModuleError {
     InvalidPointer(&'static str),
     #[error("failed to convert pointer to char into string")]
     StrError(Box<dyn std::error::Error>),
+    #[error("data path is invalid")]
+    InvalidDataPath,
 }
 
 debug_from_display!(ModuleError);

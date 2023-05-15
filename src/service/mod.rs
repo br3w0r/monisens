@@ -5,6 +5,7 @@ mod model;
 
 use std::collections::HashSet;
 use std::error::Error;
+use std::path::Path;
 use tokio::io::AsyncRead;
 
 use crate::query::integration::isqlx as sq;
@@ -71,8 +72,8 @@ impl Service {
         db_model::Device {
             id: res.id.into(),
             name,
-            module_dir: res.module_dir.clone(),
-            data_dir: res.data_dir.clone(),
+            module_dir: path_to_str(&res.module_dir)?,
+            data_dir: path_to_str(&res.data_dir.clone())?,
             init_state: db_model::DeviceInitState::Device,
         }
         .values(&mut b);
@@ -358,4 +359,10 @@ fn quote_string(s: &str) -> String {
     res.push('"');
 
     res
+}
+
+fn path_to_str<P: AsRef<Path>>(path: P) -> Result<String, ServiceError> {
+    let p = path.as_ref().to_str().ok_or(ServiceError::InvalidPath)?;
+
+    Ok(p.to_string())
 }

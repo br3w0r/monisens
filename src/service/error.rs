@@ -15,6 +15,8 @@ pub enum ServiceError {
     NameValidationErr(String, ValidationError),
     #[error("device '{0}' has already been initialized")]
     DeviceAlreadyInitialized(device::DeviceID),
+    #[error("path is invalid")]
+    InvalidPath,
 }
 
 debug_from_display!(ServiceError);

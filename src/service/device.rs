@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -112,8 +113,8 @@ impl From<&db_model::DeviceInitState> for DeviceInitState {
 pub struct Device {
     /// == `device.name` in DB
     name: String,
-    module_dir: String,
-    data_dir: String,
+    module_dir: PathBuf,
+    data_dir: PathBuf,
     init_state: DeviceInitState,
 
     /// [`HashMap`]<`sensor's table name`, [`Sensor`]>
@@ -168,7 +169,7 @@ pub struct SensorInfo {
 pub struct DeviceManager {
     last_id: Arc<AtomicI32>,
     device_map: Arc<RwLock<HashMap<DeviceID, Arc<RwLock<Device>>>>>,
-    data_dir: Arc<String>,
+    data_dir: Arc<PathBuf>,
 }
 
 impl DeviceManager {
@@ -189,8 +190,8 @@ impl DeviceManager {
                 DeviceID(device.id),
                 Arc::new(RwLock::new(Device {
                     name: device.name.clone(),
-                    module_dir: device.module_dir.clone(),
-                    data_dir: device.data_dir.clone(),
+                    module_dir: PathBuf::from_str(&device.module_dir)?,
+                    data_dir: PathBuf::from_str(&device.data_dir)?,
                     sensor_map: HashMap::new(),
                     init_state: (&device.init_state).into(),
                 })),
@@ -252,7 +253,7 @@ impl DeviceManager {
         };
 
         // TODO: Replace with logger
-        println!("Inited DeviceManager with data_dir = {}", &res.data_dir);
+        println!("Inited DeviceManager with data_dir = {:?}", res.data_dir);
         std::io::stdout().flush().unwrap();
 
         Ok(res)
@@ -282,10 +283,10 @@ impl DeviceManager {
         let dir_name = build_device_dir_name(&id, &name);
         self.create_data_dir(&dir_name).await?;
 
-        let module_dir = dir_name.clone() + "module/";
+        let module_dir = dir_name.join("module");
         self.create_data_dir(&module_dir).await?;
 
-        let data_dir = dir_name.clone() + "data/";
+        let data_dir = dir_name.join("data");
         self.create_data_dir(&data_dir).await?;
 
         let full_module_path = self.full_module_file_path(&module_dir);
@@ -351,7 +352,7 @@ impl DeviceManager {
         // Intentionally lock device for write 'cause we're deleting it
         let device = device.write().unwrap();
 
-        let device_dir = self.data_dir.to_string() + &build_device_dir_name(id, &device.name);
+        let device_dir = self.data_dir.join(build_device_dir_name(id, &device.name));
         fs::remove_dir_all(device_dir).await?;
 
         device_map.remove(id);
@@ -449,16 +450,19 @@ impl DeviceManager {
         }
     }
 
-    async fn create_data_dir(&self, rel_path: &str) -> io::Result<()> {
+    async fn create_data_dir<P: AsRef<Path>>(&self, rel_path: P) -> io::Result<()> {
         fs::create_dir(self.full_data_dir(rel_path)).await
     }
 
-    fn full_data_dir(&self, data_dir: &str) -> String {
-        (*self.data_dir).clone() + data_dir
+    fn full_data_dir<P: AsRef<Path>>(&self, data_dir: P) -> PathBuf {
+        (*self.data_dir).join(data_dir)
     }
 
-    fn full_module_file_path(&self, module_dir: &str) -> String {
-        (*self.data_dir).clone() + &module_dir + "lib" + MODULE_FILE_EXT
+    fn full_module_file_path<P: AsRef<Path>>(&self, module_dir: P) -> PathBuf {
+        let mut p = (*self.data_dir).join(module_dir);
+        p.push("lib".to_string() + MODULE_FILE_EXT);
+
+        p
     }
 }
 
@@ -472,33 +476,30 @@ impl Default for DeviceManager {
     }
 }
 
-fn check_and_return_base_dir() -> String {
+fn check_and_return_base_dir() -> PathBuf {
     println!("Initializing base dir...");
     std::io::stdout().flush().unwrap();
 
-    #[cfg(windows)]
-    let path = app::data_dir() + "device\\";
-    #[cfg(unix)]
-    let path = app::data_dir() + "device/";
+    let path = app::data_dir().join("device");
 
     let p = Path::new(&path);
 
     if !p.is_dir() {
-        std::fs::create_dir(p).expect(&format!("failed to create base dir: '{path}'"));
+        std::fs::create_dir(p).expect(&format!("failed to create base dir: '{path:?}'",));
     }
 
     path
 }
 
-fn build_device_dir_name(id: &DeviceID, name: &String) -> String {
-    id.0.to_string() + "-" + &name + "/"
+fn build_device_dir_name(id: &DeviceID, name: &String) -> PathBuf {
+    PathBuf::from_str(&(id.0.to_string() + "-" + &name)).unwrap()
 }
 
-async fn create_file<'a, R: AsyncRead + Unpin + ?Sized>(
-    path: &str,
+async fn create_file<'a, R: AsyncRead + Unpin + ?Sized, P: AsRef<Path>>(
+    path: P,
     data: &'a mut R,
 ) -> io::Result<()> {
-    if let Ok(_) = fs::File::open(path).await {
+    if let Ok(_) = fs::File::open(&path).await {
         return Err(io::ErrorKind::AlreadyExists.into());
     }
 
