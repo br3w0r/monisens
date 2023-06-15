@@ -26,22 +26,32 @@ jobs:
         include:
           - os: ubuntu-latest
             OS_NAME: Linux
-            RELEASE_FILE: monisens
+            OUTPUT_FILE: monisens
+            RELEASE_FILE: monisens_linux
           - os: windows-latest
             OS_NAME: Windows
-            RELEASE_FILE: monisens.exe
+            OUTPUT_FILE: monisens.exe
+            RELEASE_FILE: monisens_win.exe
           - os: macos-latest
             OS_NAME: macOS
-            RELEASE_FILE: monisens
+            OUTPUT_FILE: monisens
+            RELEASE_FILE: monisens_macos
     steps:
     - uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Build
-      run: cargo build --release
+      run: cargo build --release && mv target/release/${{ matrix.OUTPUT_FILE }} ${{ matrix.RELEASE_FILE }}
     - name: Run tests
       run: cargo test --verbose
     - name: Create release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: target/release/${{ matrix.RELEASE_FILE }}
+        files: ${{ matrix.RELEASE_FILE }}
         token: ${{ secrets.GITHUB_TOKEN }}
