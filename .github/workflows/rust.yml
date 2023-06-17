@@ -69,16 +69,16 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-arm64-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Add target
       run: rustup target add $MAC_ARM_TARGET
     - name: Build
-      run: cargo build --target $MAC_ARM_TARGET --release && mv target/release/${{ matrix.OUTPUT_FILE }} ${{ matrix.RELEASE_FILE }}
+      run: cargo build --target $MAC_ARM_TARGET --release && mv target/release/$MAC_ARM_TARGET/monisens monisens_mac_arm64
     - name: Run tests
       run: cargo test --verbose
     - name: Create release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: ${{ matrix.RELEASE_FILE }}
+        files: monisens_mac_arm64
         token: ${{ secrets.GITHUB_TOKEN }}
