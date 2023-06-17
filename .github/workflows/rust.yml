@@ -14,14 +14,13 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  TIMEOUT: 30
   MAC_ARM_TARGET: aarch64-apple-darwin
 
 jobs:
   build:
     name: Build for ${{ matrix.OS_NAME }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: ${{ env.TIMEOUT }}
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -61,7 +60,7 @@ jobs:
   build_mac_arm:
     name: Build for macOS arm64
     runs-on: macos-latest
-    timeout-minutes: ${{ env.TIMEOUT }}
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
