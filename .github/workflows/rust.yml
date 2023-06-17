@@ -28,15 +28,15 @@ jobs:
           - os: ubuntu-latest
             OS_NAME: Linux x64
             OUTPUT_FILE: monisens
-            RELEASE_FILE: monisens_linux
+            RELEASE_FILE: monisens_linux_x86_64
           - os: windows-latest
             OS_NAME: Windows x64
             OUTPUT_FILE: monisens.exe
-            RELEASE_FILE: monisens_win.exe
+            RELEASE_FILE: monisens_win_x86_64.exe
           - os: macos-latest
             OS_NAME: macOS x64
             OUTPUT_FILE: monisens
-            RELEASE_FILE: monisens_macos
+            RELEASE_FILE: monisens_macos_x86_64
     steps:
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
