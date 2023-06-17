@@ -73,7 +73,7 @@ jobs:
     - name: Add target
       run: rustup target add $MAC_ARM_TARGET
     - name: Build
-      run: cargo build --target $MAC_ARM_TARGET --release && mv target/release/$MAC_ARM_TARGET/monisens monisens_mac_arm64
+      run: cargo build --target $MAC_ARM_TARGET --release && mv target/$MAC_ARM_TARGET/release/monisens monisens_mac_arm64
     - name: Run tests
       run: cargo test --verbose
     - name: Create release
