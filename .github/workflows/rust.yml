@@ -21,7 +21,7 @@ jobs:
   build:
     name: Build for ${{ matrix.OS_NAME }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: $TIMEOUT
+    timeout-minutes: ${{ TIMEOUT }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -61,7 +61,7 @@ jobs:
   build_mac_arm:
     name: Build for macOS arm64
     runs-on: macos-latest
-    timeout-minutes: $TIMEOUT
+    timeout-minutes: ${{ TIMEOUT }}
     steps:
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
