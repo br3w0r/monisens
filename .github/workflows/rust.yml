@@ -14,32 +14,30 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  TIMEOUT: 30
+  MAC_ARM_TARGET: aarch64-apple-darwin
 
 jobs:
   build:
     name: Build for ${{ matrix.OS_NAME }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: $TIMEOUT
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-pc-windows-msvc, x86_64-apple-darwin, aarch64-apple-darwin]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
-          - target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
             OS_NAME: Linux x64
             OUTPUT_FILE: monisens
-            RELEASE_FILE: monisens_linux_x86_64
-          - target: aarch64-unknown-linux-gnu
-            OS_NAME: Linux x64
-            OUTPUT_FILE: monisens
-            RELEASE_FILE: monisens_linux_aarch64
-          - target: windows-latest
+            RELEASE_FILE: monisens_linux
+          - os: windows-latest
             OS_NAME: Windows x64
             OUTPUT_FILE: monisens.exe
-            RELEASE_FILE: monisens_win_x86_64.exe
-          - target: macos-latest
+            RELEASE_FILE: monisens_win.exe
+          - os: macos-latest
             OS_NAME: macOS x64
             OUTPUT_FILE: monisens
-            RELEASE_FILE: monisens_macos_x86_64
+            RELEASE_FILE: monisens_macos
     steps:
     - uses: actions/checkout@v3
     - uses: actions/cache@v3
@@ -49,29 +47,36 @@ jobs:
           ~/.cargo/git
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        profile: minimal
-        override: true
-        target: ${{ matrix.target }}
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        use-cross: true
-        command: build
-        args: --release --target ${{ matrix.target }}
+      run: cargo build --release && mv target/release/${{ matrix.OUTPUT_FILE }} ${{ matrix.RELEASE_FILE }}
     - name: Run tests
-      uses: actions-rs/cargo@v1
+      run: cargo test --verbose
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
       with:
-        use-cross: true
-        command: test
-        args: --verbose --target ${{ matrix.target }}
-    - name: Package
-      shell: bash
-      run: |
-        mv target/${{ matrix.target }}/release/${{ matrix.OUTPUT_FILE }} ${{ matrix.RELEASE_FILE }}
+        files: ${{ matrix.RELEASE_FILE }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build_mac_arm:
+    name: Build for macOS arm64
+    runs-on: macos-latest
+    timeout-minutes: $TIMEOUT
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Add target
+      run: rustup target add $MAC_ARM_TARGET
+    - name: Build
+      run: cargo build --target $MAC_ARM_TARGET --release && mv target/release/${{ matrix.OUTPUT_FILE }} ${{ matrix.RELEASE_FILE }}
+    - name: Run tests
+      run: cargo test --verbose
     - name: Create release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
