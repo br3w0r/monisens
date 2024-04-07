@@ -14,6 +14,11 @@ mod table;
 mod tool;
 mod webserver;
 
+use webserver::config;
+
+const APP_DATA_DIR: &str = "app_data";
+const APP_DATA_ENV_KEY: &str = "MONISENS_APP_DATA";
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let conf = controller::Conf::new()
@@ -24,9 +29,30 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("Starting web server...");
     std::io::stdout().flush().unwrap();
 
-    webserver::start_server(ctrl).await?;
+    let app_config = init_app_config()?;
+
+    webserver::start_server(ctrl, app_config).await?;
 
     Ok(())
+}
+
+fn init_app_config() -> Result<config::AppConfig, Box<dyn Error>> {
+    let exec_dir = get_exec_dir()?;
+    let app_data_env_path = std::env::var(APP_DATA_ENV_KEY);
+    let app_data = if let Ok(dir) = app_data_env_path {
+        dir.parse()
+    } else {
+        Ok(exec_dir.join(APP_DATA_DIR))
+    }?;
+
+    Ok(config::AppConfig::new(app_data))
+}
+
+fn get_exec_dir() -> std::io::Result<std::path::PathBuf> {
+    let mut exec_dir = std::env::current_exe()?;
+    exec_dir.pop();
+
+    Ok(exec_dir)
 }
 
 // fn error_parser<T: Any>(err: T) -> Option<String> {

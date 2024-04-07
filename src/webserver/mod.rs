@@ -1,3 +1,4 @@
+pub mod config;
 mod controller;
 mod model;
 
@@ -11,7 +12,10 @@ use utoipa_swagger_ui::SwaggerUi;
 use controller::*;
 use model::*;
 
-pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box<dyn Error>> {
+pub async fn start_server(
+    ctrl: crate::controller::Controller,
+    app_config: config::AppConfig,
+) -> Result<(), Box<dyn Error>> {
     #[derive(OpenApi)]
     #[openapi(
         paths(
@@ -87,7 +91,7 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
             .wrap(cors)
             .service(
                 web::scope("/service")
-                    .app_data(web::Data::new(State { ctrl: ctrl.clone() }))
+                    .app_data(web::Data::new(ServiceState { ctrl: ctrl.clone() }))
                     .service(service::start_device_init)
                     .service(service::connect_device)
                     .service(service::obtain_device_conf_info)
@@ -99,13 +103,14 @@ pub async fn start_server(ctrl: crate::controller::Controller) -> Result<(), Box
                     .service(service::get_monitor_conf_list)
                     .service(service::save_monitor_conf),
             )
+            .app_data(web::Data::new(AppState { conf: app_config.clone() }))
             .service(app::index)
             .service(web::redirect("/app", "/app/"))
             .service(app::serve_static)
             .service(SwaggerUi::new("/docs/{_:.*}").url("/swagger.json", ApiDoc::openapi()))
             .service(web::redirect("/docs", "/docs/"))
     })
-    .bind(("0.0.0.0", 8888))
+    .bind(("127.0.0.1", 8888))
     .unwrap()
     .run()
     .await

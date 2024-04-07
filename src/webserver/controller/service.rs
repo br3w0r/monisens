@@ -2,7 +2,7 @@ use actix_multipart::form::MultipartForm;
 use actix_web::{post, web, HttpResponse, Responder, Result};
 use actix_web_validator::Json;
 
-use crate::webserver::model::{contract, State};
+use crate::webserver::model::{contract, ServiceState};
 
 #[utoipa::path(
     context_path = "/service",
@@ -14,7 +14,7 @@ use crate::webserver::model::{contract, State};
 )]
 #[post("/start-device-init")]
 pub async fn start_device_init(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     MultipartForm(form): MultipartForm<contract::DeviceStartInitRequest>,
 ) -> Result<impl Responder> {
     let mut file = tokio::fs::File::open(form.module_file.file.path()).await?;
@@ -37,7 +37,7 @@ pub async fn start_device_init(
 )]
 #[post("/connect-device")]
 pub async fn connect_device(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     mut req: web::Json<contract::ConnectDeviceRequest>,
 ) -> Result<impl Responder> {
     data.ctrl.connect_device(
@@ -58,7 +58,7 @@ pub async fn connect_device(
 )]
 #[post("/obtain-device-conf-info")]
 pub async fn obtain_device_conf_info(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: web::Json<contract::ObtainDeviceConfInfoRequest>,
 ) -> Result<impl Responder> {
     let mut res = data.ctrl.obtain_device_conf_info(req.device_id)?;
@@ -78,7 +78,7 @@ pub async fn obtain_device_conf_info(
 )]
 #[post("/configure-device")]
 pub async fn configure_device(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     mut req: web::Json<contract::ConfigureDeviceRequest>,
 ) -> Result<impl Responder> {
     data.ctrl
@@ -101,7 +101,7 @@ pub async fn configure_device(
 )]
 #[post("/interrupt-device-init")]
 pub async fn interrupt_device_init(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: web::Json<contract::InterruptDeviceInitRequest>,
 ) -> Result<impl Responder> {
     data.ctrl.interrupt_device_init(req.device_id).await?;
@@ -119,7 +119,7 @@ pub async fn interrupt_device_init(
 )]
 #[post("/get-sensor-data")]
 pub async fn get_sensor_data(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: Json<contract::GetSensorDataRequest>,
 ) -> Result<impl Responder> {
     let res = data.ctrl.get_sensor_data(req.0.clone().into()).await?;
@@ -135,7 +135,7 @@ pub async fn get_sensor_data(
     ),
 )]
 #[post("/get-device-list")]
-pub async fn get_device_list(data: web::Data<State>) -> Result<impl Responder> {
+pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Responder> {
     let mut res = data.ctrl.get_device_list();
 
     res.sort_unstable_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
@@ -153,7 +153,7 @@ pub async fn get_device_list(data: web::Data<State>) -> Result<impl Responder> {
 )]
 #[post("/get-device-sensor-info")]
 pub async fn get_device_sensor_info(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: Json<contract::GetDeviceSensorInfoRequest>,
 ) -> Result<impl Responder> {
     let res = data.ctrl.get_device_sensor_info(req.device_id)?;
@@ -173,7 +173,7 @@ pub async fn get_device_sensor_info(
 )]
 #[post("/save-monitor-conf")]
 pub async fn save_monitor_conf(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: Json<contract::SaveMonitorConfRequest>,
 ) -> Result<impl Responder> {
     let id = data.ctrl.save_monitor_conf(req.0.into()).await?;
@@ -191,7 +191,7 @@ pub async fn save_monitor_conf(
 )]
 #[post("/get-monitor-conf-list")]
 pub async fn get_monitor_conf_list(
-    data: web::Data<State>,
+    data: web::Data<ServiceState>,
     req: Json<contract::MonitorConfListRequest>,
 ) -> Result<impl Responder> {
     let res = data.ctrl.get_monitor_conf_list(req.0.filter.into()).await?;
