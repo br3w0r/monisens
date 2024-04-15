@@ -13,6 +13,7 @@ use controller::*;
 use model::*;
 
 pub async fn start_server(
+    host: String,
     ctrl: crate::controller::Controller,
     app_config: config::AppConfig,
 ) -> Result<(), Box<dyn Error>> {
@@ -109,8 +110,9 @@ pub async fn start_server(
             .service(app::serve_static)
             .service(SwaggerUi::new("/docs/{_:.*}").url("/swagger.json", ApiDoc::openapi()))
             .service(web::redirect("/docs", "/docs/"))
+            .service(web::redirect("/", "/app/"))
     })
-    .bind(("127.0.0.1", 8888))
+    .bind(host)
     .unwrap()
     .run()
     .await

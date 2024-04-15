@@ -1,13 +1,14 @@
 mod querier;
 
 use std::error::Error;
+use std::time::Duration;
 
 use sqlx::{
     postgres::{PgPoolOptions, PgQueryResult, PgRow},
-    query_as_unchecked, Executor, FromRow, Pool, Postgres,
+    FromRow, Pool, Postgres,
 };
 
-use crate::query::integration::isqlx::{self as sq, ArgType};
+use crate::query::integration::isqlx::ArgType;
 use crate::{query::sqlizer::Sqlizer, table::Table};
 
 #[derive(Clone)]
@@ -18,7 +19,11 @@ pub struct Repository {
 impl Repository {
     pub async fn new(dsn: &str) -> Result<Self, Box<dyn Error>> {
         // TODO: advanced configuration?
-        let pool = PgPoolOptions::new().max_connections(5).connect(dsn).await?;
+        let pool = PgPoolOptions::new()
+            .max_connections(5)
+            .acquire_timeout(Duration::from_secs(5))
+            .connect(dsn)
+            .await?;
 
         Ok(Self { pool })
     }

@@ -29,3 +29,4 @@ actix-web-validator = "5"
 serde = "1"
 utoipa = { version = "3", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "3", features = ["actix-web"] }
+getopts = "0.2"

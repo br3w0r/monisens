@@ -28,14 +28,23 @@ pub struct Controller {
 
 impl Controller {
     pub async fn new(conf: Conf, tokio_handle: Handle) -> Result<Self, Box<dyn Error>> {
-        let repo = repo::Repository::new(conf.get_repo_dsn()).await?;
-        let svc = service::Service::new(repo).await?;
+        let repo = repo::Repository::new(conf.get_repo_dsn())
+            .await
+            .map_err(|err| format!("failed to init repo: {err}"))?;
+        let svc = service::Service::new(repo)
+            .await
+            .map_err(|err| format!("failed to init service: {err}"))?;
 
         let device_init_datas = svc.get_init_data_all_devices();
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let m = module::Module::new(&data.module_file, &data.full_data_dir)?;
+            let m = module::Module::new(&data.module_file, &data.full_data_dir).map_err(|err| {
+                format!(
+                    "failed to init module; file: {}; err: {err}",
+                    data.module_file.to_str().unwrap_or("[invalid file path]")
+                )
+            })?;
             let device = Arc::new(Mutex::new(Device {
                 id: data.id,
                 module: m,
@@ -46,7 +55,10 @@ impl Controller {
                 let mut device = device.lock().unwrap();
                 let msg_handler = msg::Handler::new(data.id, svc.clone(), tokio_handle.clone());
 
-                device.module.start(msg_handler.clone())?;
+                device
+                    .module
+                    .start(msg_handler.clone())
+                    .map_err(|err| format!("failed to start device: {err}"))?;
 
                 device.msg_handler = Some(msg_handler);
             }
