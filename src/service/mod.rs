@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 use tokio::io::AsyncRead;
+use inflections::Inflect;
 
 use crate::query::integration::isqlx as sq;
 use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
@@ -50,19 +51,21 @@ impl Service {
     /// It sets `device.init_state` to `DEVICE`
     pub async fn start_device_init<'f, F: AsyncRead + Unpin + ?Sized>(
         &self,
-        name: String,
+        display_name: String,
         module_file: &'f mut F,
     ) -> Result<DeviceInitData, Box<dyn Error>> {
-        if let Err(err) = base_validate_name(&name) {
+        if let Err(err) = validation::validate_multiple_words(&display_name) {
             return Err(Box::new(ServiceError::NameValidationErr(
                 "device name".into(),
                 err,
             )));
         }
 
+        let name = display_name.to_snake_case();
+
         let res = self
             .device_manager
-            .start_device_init(name.clone(), module_file)
+            .start_device_init(name.clone(), display_name.clone(), module_file)
             .await?;
 
         let mut b = sq::StatementBuilder::new();
@@ -72,6 +75,7 @@ impl Service {
         db_model::Device {
             id: res.id.into(),
             name,
+            display_name,
             module_dir: path_to_str(&res.module_dir)?,
             data_dir: path_to_str(&res.data_dir.clone())?,
             init_state: db_model::DeviceInitState::Device,

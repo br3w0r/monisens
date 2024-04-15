@@ -41,6 +41,8 @@ pub struct Device {
     #[column]
     pub name: String,
     #[column]
+    pub display_name: String,
+    #[column]
     pub module_dir: String,
     #[column]
     pub data_dir: String,
@@ -60,6 +62,7 @@ impl ValuesTrait for Device {
         b.values(vec![
             self.id.into(),
             self.name.into(),
+            self.display_name.into(),
             self.module_dir.into(),
             self.data_dir.into(),
             self.init_state.into(),

@@ -113,6 +113,7 @@ impl From<&db_model::DeviceInitState> for DeviceInitState {
 pub struct Device {
     /// == `device.name` in DB
     name: String,
+    display_name: String,
     module_dir: PathBuf,
     data_dir: PathBuf,
     init_state: DeviceInitState,
@@ -124,6 +125,10 @@ pub struct Device {
 impl Device {
     pub fn get_name(&self) -> &String {
         &self.name
+    }
+
+    pub fn get_display_name(&self) -> &String {
+        &self.display_name
     }
 
     pub fn get_sensors(&self) -> &HashMap<String, Sensor> {
@@ -155,7 +160,7 @@ impl fmt::Display for DeviceID {
 /// DeviceInfo contains basic info about device that may be read by user
 pub struct DeviceInfo {
     pub id: DeviceID,
-    pub name: String,
+    pub display_name: String,
 }
 
 /// SensorInfo contains basic info about device's sensors that may be read by user
@@ -190,6 +195,7 @@ impl DeviceManager {
                 DeviceID(device.id),
                 Arc::new(RwLock::new(Device {
                     name: device.name.clone(),
+                    display_name: device.display_name.clone(),
                     module_dir: PathBuf::from_str(&device.module_dir)?,
                     data_dir: PathBuf::from_str(&device.data_dir)?,
                     sensor_map: HashMap::new(),
@@ -273,6 +279,7 @@ impl DeviceManager {
     pub async fn start_device_init<'f, F>(
         &self,
         name: String,
+        display_name: String,
         module_file: &'f mut F,
     ) -> Result<model::DeviceInitData, Box<dyn Error>>
     where
@@ -294,6 +301,7 @@ impl DeviceManager {
 
         let device = Device {
             name,
+            display_name,
             module_dir: module_dir.clone(),
             data_dir: data_dir.clone(),
             sensor_map: Default::default(),
@@ -395,7 +403,7 @@ impl DeviceManager {
             if data.init_state == DeviceInitState::Sensors {
                 res.push(DeviceInfo {
                     id: id.clone(),
-                    name: data.get_name().clone(),
+                    display_name: data.get_display_name().clone(),
                 })
             }
         }

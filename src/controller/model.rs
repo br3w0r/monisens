@@ -442,7 +442,7 @@ impl From<service::DeviceInfo> for DeviceEntry {
     fn from(value: service::DeviceInfo) -> Self {
         Self {
             id: value.id.get_raw(),
-            name: value.name,
+            name: value.display_name,
         }
     }
 }
