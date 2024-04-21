@@ -43,7 +43,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Initialize and start web server
     let conf = controller::Conf::new().with_repo_dsn(args.db);
 
-    let ctrl = controller::Controller::new(conf, Handle::current())
+    let repo = repo::Repository::new(conf.get_repo_dsn())
+        .await
+        .map_err(|err| format!("failed to init repo: {err}"))?;
+    let svc = service::Service::new(repo)
+        .await
+        .map_err(|err| format!("failed to init service: {err}"))?;
+
+    let ctrl = controller::Controller::new(Handle::current(), svc)
         .await
         .map_err(|err| format!("failed to init controller: {err}"))?;
 

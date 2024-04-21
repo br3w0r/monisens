@@ -136,7 +136,7 @@ pub async fn get_sensor_data(
 )]
 #[post("/get-device-list")]
 pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Responder> {
-    let mut res = data.ctrl.get_device_list();
+    let mut res = data.ctrl.get_device_info_list();
 
     res.sort_unstable_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
 

@@ -1,11 +1,9 @@
 use crate::debug_from_display;
 use thiserror::Error;
 
-use std::fmt;
-
 use crate::tool::validation::ValidationError;
 
-use super::device;
+use crate::controller::DeviceID;
 
 #[derive(Error)]
 pub enum ServiceError {
@@ -14,7 +12,7 @@ pub enum ServiceError {
     #[error("failed to validate name '{0}': {1}")]
     NameValidationErr(String, ValidationError),
     #[error("device '{0}' has already been initialized")]
-    DeviceAlreadyInitialized(device::DeviceID),
+    DeviceAlreadyInitialized(DeviceID),
     #[error("path is invalid")]
     InvalidPath,
 }

@@ -29,10 +29,10 @@ pub struct DeviceStartInitResponse {
     pub conn_params: Vec<ConnParamConf>,
 }
 
-impl From<controller::DeviceInitData> for DeviceStartInitResponse {
-    fn from(mut value: controller::DeviceInitData) -> Self {
+impl From<controller::DeviceConnData> for DeviceStartInitResponse {
+    fn from(mut value: controller::DeviceConnData) -> Self {
         Self {
-            device_id: value.id,
+            device_id: value.id.get_raw(),
             conn_params: value.conn_params.drain(..).map(|v| v.into()).collect(),
         }
     }
@@ -396,23 +396,8 @@ impl From<controller::GetSensorDataResult> for GetSensorDataResponse {
         Self {
             result: value
                 .drain(..)
-                .map(|mut v| v.drain().map(|(field, val)| (field, val.into())).collect())
+                .map(|mut v| v.drain().map(|(field, val)| (field, val.data.into())).collect())
                 .collect(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, ToSchema)]
-pub enum SortOrder {
-    ASC,
-    DESC,
-}
-
-impl From<SortOrder> for controller::SortOrder {
-    fn from(value: SortOrder) -> Self {
-        match value {
-            SortOrder::ASC => controller::SortOrder::ASC,
-            SortOrder::DESC => controller::SortOrder::DESC,
         }
     }
 }
@@ -421,7 +406,7 @@ impl From<SortOrder> for controller::SortOrder {
 pub struct Sort {
     #[validate(length(min = 1))]
     pub field: String,
-    pub order: SortOrder,
+    pub order: SortDir,
 }
 
 impl From<Sort> for controller::Sort {
@@ -446,32 +431,32 @@ pub enum SensorData {
     JSON(String),
 }
 
-impl From<SensorData> for controller::SensorData {
+impl From<SensorData> for controller::SensorDataTypeValue {
     fn from(value: SensorData) -> Self {
         match value {
-            SensorData::Int16(v) => controller::SensorData::Int16(v),
-            SensorData::Int32(v) => controller::SensorData::Int32(v),
-            SensorData::Int64(v) => controller::SensorData::Int64(v),
-            SensorData::Float32(v) => controller::SensorData::Float32(v),
-            SensorData::Float64(v) => controller::SensorData::Float64(v),
-            SensorData::Timestamp(v) => controller::SensorData::Timestamp(v),
-            SensorData::String(v) => controller::SensorData::String(v),
-            SensorData::JSON(v) => controller::SensorData::JSON(v),
+            SensorData::Int16(v) => controller::SensorDataTypeValue::Int16(v),
+            SensorData::Int32(v) => controller::SensorDataTypeValue::Int32(v),
+            SensorData::Int64(v) => controller::SensorDataTypeValue::Int64(v),
+            SensorData::Float32(v) => controller::SensorDataTypeValue::Float32(v),
+            SensorData::Float64(v) => controller::SensorDataTypeValue::Float64(v),
+            SensorData::Timestamp(v) => controller::SensorDataTypeValue::Timestamp(v),
+            SensorData::String(v) => controller::SensorDataTypeValue::String(v),
+            SensorData::JSON(v) => controller::SensorDataTypeValue::JSON(v),
         }
     }
 }
 
-impl From<controller::SensorData> for SensorData {
-    fn from(value: controller::SensorData) -> Self {
+impl From<controller::SensorDataTypeValue> for SensorData {
+    fn from(value: controller::SensorDataTypeValue) -> Self {
         match value {
-            controller::SensorData::Int16(v) => SensorData::Int16(v),
-            controller::SensorData::Int32(v) => SensorData::Int32(v),
-            controller::SensorData::Int64(v) => SensorData::Int64(v),
-            controller::SensorData::Float32(v) => SensorData::Float32(v),
-            controller::SensorData::Float64(v) => SensorData::Float64(v),
-            controller::SensorData::Timestamp(v) => SensorData::Timestamp(v),
-            controller::SensorData::String(v) => SensorData::String(v),
-            controller::SensorData::JSON(v) => SensorData::JSON(v),
+            controller::SensorDataTypeValue::Int16(v) => SensorData::Int16(v),
+            controller::SensorDataTypeValue::Int32(v) => SensorData::Int32(v),
+            controller::SensorDataTypeValue::Int64(v) => SensorData::Int64(v),
+            controller::SensorDataTypeValue::Float32(v) => SensorData::Float32(v),
+            controller::SensorDataTypeValue::Float64(v) => SensorData::Float64(v),
+            controller::SensorDataTypeValue::Timestamp(v) => SensorData::Timestamp(v),
+            controller::SensorDataTypeValue::String(v) => SensorData::String(v),
+            controller::SensorDataTypeValue::JSON(v) => SensorData::JSON(v),
         }
     }
 }
@@ -481,8 +466,8 @@ pub struct GetDeviceListResponse {
     result: Vec<DeviceEntry>,
 }
 
-impl From<Vec<controller::DeviceEntry>> for GetDeviceListResponse {
-    fn from(mut value: Vec<controller::DeviceEntry>) -> Self {
+impl From<Vec<controller::DeviceInfo>> for GetDeviceListResponse {
+    fn from(mut value: Vec<controller::DeviceInfo>) -> Self {
         Self {
             result: value.drain(..).map(|v| v.into()).collect(),
         }
@@ -495,11 +480,11 @@ pub struct DeviceEntry {
     pub name: String,
 }
 
-impl From<controller::DeviceEntry> for DeviceEntry {
-    fn from(value: controller::DeviceEntry) -> Self {
+impl From<controller::DeviceInfo> for DeviceEntry {
+    fn from(value: controller::DeviceInfo) -> Self {
         Self {
-            id: value.id,
-            name: value.name,
+            id: value.id.get_raw(),
+            name: value.display_name,
         }
     }
 }
@@ -550,8 +535,8 @@ pub struct SensorDataInfo {
     pub typ: SensorDataType,
 }
 
-impl From<controller::SensorDataInfo> for SensorDataInfo {
-    fn from(value: controller::SensorDataInfo) -> Self {
+impl From<controller::SensorDataEntry> for SensorDataInfo {
+    fn from(value: controller::SensorDataEntry) -> Self {
         Self {
             name: value.name,
             typ: value.typ.into(),
@@ -604,6 +589,7 @@ pub struct SaveMonitorConfResponse {
 impl From<SaveMonitorConfRequest> for controller::MonitorConf {
     fn from(value: SaveMonitorConfRequest) -> Self {
         Self {
+            id: 0,
             device_id: value.device_id,
             sensor: value.sensor,
             typ: value.typ.into(),
@@ -764,8 +750,8 @@ pub struct MonitorConfListResponse {
     result: Vec<MonitorConfListEntry>,
 }
 
-impl From<Vec<controller::MonitorConfListEntry>> for MonitorConfListResponse {
-    fn from(mut value: Vec<controller::MonitorConfListEntry>) -> Self {
+impl From<Vec<controller::MonitorConf>> for MonitorConfListResponse {
+    fn from(mut value: Vec<controller::MonitorConf>) -> Self {
         MonitorConfListResponse {
             result: value
                 .drain(..)

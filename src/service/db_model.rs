@@ -10,6 +10,7 @@ use crate::{
     arg_from_ty, ref_arg_type,
     tool::query_trait::{ColumnsTrait, ValuesTrait},
 };
+use crate::controller as ctrl;
 use macros::Table;
 
 use crate::debug_from_display;
@@ -27,6 +28,15 @@ impl ToString for DeviceInitState {
         match self {
             DeviceInitState::Device => "DEVICE".into(),
             DeviceInitState::Sensors => "SENSORS".into(),
+        }
+    }
+}
+
+impl From<&DeviceInitState> for ctrl::DeviceInitState {
+    fn from(v: &DeviceInitState) -> Self {
+        match v {
+            DeviceInitState::Device => ctrl::DeviceInitState::Device,
+            DeviceInitState::Sensors => ctrl::DeviceInitState::Sensors,
         }
     }
 }
@@ -112,6 +122,15 @@ pub struct SensorData {
     pub data: SensorDataTypeValue,
 }
 
+impl From<SensorData> for ctrl::SensorData {
+    fn from(v: SensorData) -> Self {
+        ctrl::SensorData {
+            name: v.name,
+            data: ctrl::SensorDataTypeValue::from(v.data),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SensorDataTypeValue {
     Int16(i16),
@@ -151,6 +170,42 @@ impl crate::query::integration::isqlx::ArgType for SensorDataTypeValue {
 }
 
 arg_from_ty!(SensorDataTypeValue);
+
+impl From<ctrl::SensorDataTypeValue> for SensorDataTypeValue {
+    fn from(v: ctrl::SensorDataTypeValue) -> Self {
+        match v {
+            ctrl::SensorDataTypeValue::Int16(v) => SensorDataTypeValue::Int16(v),
+            ctrl::SensorDataTypeValue::Int32(v) => SensorDataTypeValue::Int32(v),
+            ctrl::SensorDataTypeValue::Int64(v) => SensorDataTypeValue::Int64(v),
+            ctrl::SensorDataTypeValue::Float32(v) => SensorDataTypeValue::Float32(v),
+            ctrl::SensorDataTypeValue::Float64(v) => SensorDataTypeValue::Float64(v),
+            ctrl::SensorDataTypeValue::Timestamp(v) => SensorDataTypeValue::Timestamp(v),
+            ctrl::SensorDataTypeValue::String(v) => SensorDataTypeValue::String(v),
+            ctrl::SensorDataTypeValue::JSON(v) => SensorDataTypeValue::JSON(v),
+        }
+    }
+}
+
+impl From<SensorDataTypeValue> for ctrl::SensorDataTypeValue {
+    fn from(v: SensorDataTypeValue) -> Self {
+        match v {
+            SensorDataTypeValue::Int16(v) => ctrl::SensorDataTypeValue::Int16(v),
+            SensorDataTypeValue::Int32(v) => ctrl::SensorDataTypeValue::Int32(v),
+            SensorDataTypeValue::Int64(v) => ctrl::SensorDataTypeValue::Int64(v),
+            SensorDataTypeValue::Float32(v) => ctrl::SensorDataTypeValue::Float32(v),
+            SensorDataTypeValue::Float64(v) => ctrl::SensorDataTypeValue::Float64(v),
+            SensorDataTypeValue::Timestamp(v) => ctrl::SensorDataTypeValue::Timestamp(v),
+            SensorDataTypeValue::String(v) => ctrl::SensorDataTypeValue::String(v),
+            SensorDataTypeValue::JSON(v) => ctrl::SensorDataTypeValue::JSON(v),
+        }
+    }
+}
+
+impl From<ctrl::SensorDataTypeValue> for Box<SensorDataTypeValue> {
+    fn from(v: ctrl::SensorDataTypeValue) -> Self {
+        Box::new(SensorDataTypeValue::from(v))
+    }
+}
 
 pub struct SensorDataRow(pub Vec<SensorData>);
 
@@ -193,6 +248,12 @@ impl<'r> FromRow<'r, PgRow> for SensorDataRow {
     }
 }
 
+impl From<SensorDataRow> for ctrl::SensorDataList {
+    fn from(mut value: SensorDataRow) -> Self {
+        value.0.drain(..).map(|v| ctrl::SensorData::from(v)).collect()
+    }
+}
+
 #[derive(Default)]
 pub struct SensorDataFilter {
     pub from: Option<(String, SensorDataTypeValue)>,
@@ -221,6 +282,17 @@ impl SensorDataFilter {
     }
 }
 
+impl From<ctrl::SensorDataFilter> for SensorDataFilter {
+    fn from(v: ctrl::SensorDataFilter) -> Self {
+        Self {
+            from: v.from.map(|v| (v.0, SensorDataTypeValue::from(v.1))),
+            to: v.to.map(|v| (v.0, SensorDataTypeValue::from(v.1))),
+            limit: v.limit,
+            sort: v.sort.map(|v| Sort::from(v)),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SortDir {
     ASC,
@@ -236,6 +308,24 @@ impl ToString for SortDir {
     }
 }
 
+impl From<ctrl::SortDir> for SortDir {
+    fn from(v: ctrl::SortDir) -> Self {
+        match v {
+            ctrl::SortDir::ASC => SortDir::ASC,
+            ctrl::SortDir::DESC => SortDir::DESC,
+        }
+    }
+}
+
+impl From<SortDir> for ctrl::SortDir {
+    fn from(v: SortDir) -> Self {
+        match v {
+            SortDir::ASC => ctrl::SortDir::ASC,
+            SortDir::DESC => ctrl::SortDir::DESC,
+        }
+    }
+}
+
 pub struct Sort {
     pub field: String,
     pub order: SortDir,
@@ -244,6 +334,15 @@ pub struct Sort {
 impl Sort {
     pub fn apply(&self, b: &mut sq::StatementBuilder) {
         b.order(self.field.clone() + " " + &self.order.to_string());
+    }
+}
+
+impl From<ctrl::Sort> for Sort {
+    fn from(v: ctrl::Sort) -> Self {
+        Self {
+            field: v.field,
+            order: SortDir::from(v.order),
+        }
     }
 }
 
@@ -272,6 +371,30 @@ impl MonitorConf {
     }
 }
 
+impl From<ctrl::MonitorConf> for MonitorConf {
+    fn from(v: ctrl::MonitorConf) -> Self {
+        MonitorConf {
+            id: v.id,
+            device_id: v.device_id,
+            sensor: v.sensor,
+            typ: MonitorType::from(v.typ),
+            config: Json(MonitorTypeConf::from(v.config)),
+        }
+    }
+}
+
+impl From<MonitorConf> for ctrl::MonitorConf {
+    fn from(v: MonitorConf) -> Self {
+        ctrl::MonitorConf {
+            id: v.id,
+            device_id: v.device_id,
+            sensor: v.sensor,
+            typ: ctrl::MonitorType::from(v.typ),
+            config: ctrl::MonitorTypeConf::from(v.config.0),
+        }
+    }
+}
+
 ref_arg_type!(Json<MonitorTypeConf>);
 arg_from_ty!(Json<MonitorTypeConf>);
 
@@ -296,10 +419,64 @@ pub enum MonitorType {
 ref_arg_type!(MonitorType);
 arg_from_ty!(MonitorType);
 
+impl From<ctrl::MonitorType> for MonitorType {
+    fn from(v: ctrl::MonitorType) -> Self {
+        match v {
+            ctrl::MonitorType::Log => MonitorType::Log,
+            ctrl::MonitorType::Line => MonitorType::Line,
+        }
+    }
+}
+
+impl From<MonitorType> for ctrl::MonitorType {
+    fn from(v: MonitorType) -> Self {
+        match v {
+            MonitorType::Log => ctrl::MonitorType::Log,
+            MonitorType::Line => ctrl::MonitorType::Line,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum MonitorTypeConf {
     Log(MonitorLogConf),
     Line(MonitorLineConf),
+}
+
+impl From<ctrl::MonitorTypeConf> for MonitorTypeConf {
+    fn from(v: ctrl::MonitorTypeConf) -> Self {
+        match v {
+            ctrl::MonitorTypeConf::Log(v) => MonitorTypeConf::Log(MonitorLogConf {
+                fields: v.fields,
+                sort_field: v.sort_field,
+                sort_direction: SortDir::from(v.sort_direction),
+                limit: v.limit,
+            }),
+            ctrl::MonitorTypeConf::Line(v) => MonitorTypeConf::Line(MonitorLineConf {
+                x_field: v.x_field,
+                y_field: v.y_field,
+                limit: v.limit,
+            }),
+        }
+    }
+}
+
+impl From<MonitorTypeConf> for ctrl::MonitorTypeConf {
+    fn from(v: MonitorTypeConf) -> Self {
+        match v {
+            MonitorTypeConf::Log(v) => ctrl::MonitorTypeConf::Log(ctrl::MonitorLogConf {
+                fields: v.fields,
+                sort_field: v.sort_field,
+                sort_direction: ctrl::SortDir::from(v.sort_direction),
+                limit: v.limit,
+            }),
+            MonitorTypeConf::Line(v) => ctrl::MonitorTypeConf::Line(ctrl::MonitorLineConf {
+                x_field: v.x_field,
+                y_field: v.y_field,
+                limit: v.limit,
+            }),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -325,6 +502,14 @@ impl MonitorConfListFilter {
     pub fn apply(&self, b: &mut sq::StatementBuilder) {
         if let Some(ref device_id) = self.device_id {
             b.whereq(sq::eq("device_id".into(), device_id.clone()));
+        }
+    }
+}
+
+impl From<ctrl::MonitorConfListFilter> for MonitorConfListFilter {
+    fn from(v: ctrl::MonitorConfListFilter) -> Self {
+        Self {
+            device_id: Some(v.device_id),
         }
     }
 }

@@ -1,10 +1,11 @@
 pub mod contract;
 
-use crate::controller;
 use super::config;
+use crate::controller::Controller;
+use crate::service::Service;
 
 pub struct ServiceState {
-    pub ctrl: controller::Controller,
+    pub ctrl: Controller<Service>,
 }
 
 pub struct AppState {

@@ -12,9 +12,12 @@ use utoipa_swagger_ui::SwaggerUi;
 use controller::*;
 use model::*;
 
+use crate::controller::Controller;
+use crate::service::Service;
+
 pub async fn start_server(
     host: String,
-    ctrl: crate::controller::Controller,
+    ctrl: Controller<Service>,
     app_config: config::AppConfig,
 ) -> Result<(), Box<dyn Error>> {
     #[derive(OpenApi)]
@@ -58,7 +61,6 @@ pub async fn start_server(
             contract::GetSensorDataRequest,
             contract::GetSensorDataResponse,
             contract::Sort,
-            contract::SortOrder,
             contract::SensorData,
             contract::GetDeviceListResponse,
             contract::DeviceEntry,
@@ -104,7 +106,9 @@ pub async fn start_server(
                     .service(service::get_monitor_conf_list)
                     .service(service::save_monitor_conf),
             )
-            .app_data(web::Data::new(AppState { conf: app_config.clone() }))
+            .app_data(web::Data::new(AppState {
+                conf: app_config.clone(),
+            }))
             .service(app::index)
             .service(web::redirect("/app", "/app/"))
             .service(app::serve_static)

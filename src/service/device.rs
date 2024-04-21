@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::error::Error;
-use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -12,9 +11,10 @@ use tokio::fs;
 use tokio::io;
 use tokio::io::AsyncRead;
 
-use crate::{app, debug_from_display, table::FieldType};
+use crate::{app, debug_from_display};
+use crate::controller::{self as ctrl, DeviceID};
 
-use super::{db_model, model};
+use super::db_model;
 
 #[cfg(target_os = "macos")]
 const MODULE_FILE_EXT: &str = ".dylib";
@@ -40,86 +40,16 @@ pub enum DeviceError {
 
 debug_from_display!(DeviceError);
 
-#[derive(Clone)]
-pub enum SensorDataType {
-    Int16,
-    Int32,
-    Int64,
-    Float32,
-    Float64,
-    Timestamp,
-    String,
-    JSON,
-}
-
-impl SensorDataType {
-    fn from_db_type(t: &str) -> Option<Self> {
-        match t {
-            "int2" => Some(Self::Int16),
-            "int4" => Some(Self::Int32),
-            "int8" => Some(Self::Int64),
-            "float4" => Some(Self::Float32),
-            "float8" => Some(Self::Float64),
-            "timestamp" => Some(Self::Timestamp),
-            "text" => Some(Self::String),
-            "jsonb" => Some(Self::JSON),
-            _ => None,
-        }
-    }
-
-    pub fn to_table_type(&self) -> FieldType {
-        match self {
-            SensorDataType::Int16 => FieldType::Int16,
-            SensorDataType::Int32 => FieldType::Int32,
-            SensorDataType::Int64 => FieldType::Int64,
-            SensorDataType::Float32 => FieldType::Float32,
-            SensorDataType::Float64 => FieldType::Float64,
-            SensorDataType::Timestamp => FieldType::Timestamp,
-            SensorDataType::String => FieldType::Text,
-            SensorDataType::JSON => FieldType::JSON,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct SensorDataEntry {
-    pub name: String,
-    pub typ: SensorDataType,
-}
-
-pub struct Sensor {
-    /// == sensor's table name // iss-96: this is not true. It's a human-readable name
-    pub name: String,
-
-    /// key in the [`HashMap`] is equal to [`SensorData`]`.name`
-    pub data_map: HashMap<String, SensorDataEntry>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum DeviceInitState {
-    Device,
-    Sensors,
-}
-
-impl From<&db_model::DeviceInitState> for DeviceInitState {
-    fn from(value: &db_model::DeviceInitState) -> Self {
-        match value {
-            db_model::DeviceInitState::Device => DeviceInitState::Device,
-            db_model::DeviceInitState::Sensors => DeviceInitState::Sensors,
-        }
-    }
-}
-
 pub struct Device {
     /// == `device.name` in DB
     name: String,
     display_name: String,
     module_dir: PathBuf,
     data_dir: PathBuf,
-    init_state: DeviceInitState,
+    init_state: ctrl::DeviceInitState,
 
     /// [`HashMap`]<`sensor's table name`, [`Sensor`]>
-    sensor_map: HashMap<String, Sensor>,
+    sensor_map: HashMap<String, ctrl::Sensor>,
 }
 
 impl Device {
@@ -131,42 +61,9 @@ impl Device {
         &self.display_name
     }
 
-    pub fn get_sensors(&self) -> &HashMap<String, Sensor> {
+    pub fn get_sensors(&self) -> &HashMap<String, ctrl::Sensor> {
         &self.sensor_map
     }
-}
-
-#[derive(Debug, Eq, Hash, PartialEq, Default, Clone, Copy)]
-pub struct DeviceID(i32);
-
-impl DeviceID {
-    pub fn get_raw(&self) -> i32 {
-        self.0
-    }
-}
-
-impl From<DeviceID> for i32 {
-    fn from(value: DeviceID) -> Self {
-        value.0
-    }
-}
-
-impl fmt::Display for DeviceID {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-/// DeviceInfo contains basic info about device that may be read by user
-pub struct DeviceInfo {
-    pub id: DeviceID,
-    pub display_name: String,
-}
-
-/// SensorInfo contains basic info about device's sensors that may be read by user
-pub struct SensorInfo {
-    pub name: String,
-    pub data: Vec<SensorDataEntry>,
 }
 
 /// `DeviceManager` hosts data of all devices like names and data folders, sensors info etc.
@@ -192,14 +89,14 @@ impl DeviceManager {
         // Init devices
         for device in devices {
             device_map.insert(
-                DeviceID(device.id),
+                DeviceID::new(device.id),
                 Arc::new(RwLock::new(Device {
                     name: device.name.clone(),
                     display_name: device.display_name.clone(),
                     module_dir: PathBuf::from_str(&device.module_dir)?,
                     data_dir: PathBuf::from_str(&device.data_dir)?,
                     sensor_map: HashMap::new(),
-                    init_state: (&device.init_state).into(),
+                    init_state: ctrl::DeviceInitState::from(&device.init_state),
                 })),
             );
 
@@ -209,17 +106,17 @@ impl DeviceManager {
         }
 
         // Init all sensors
-        let mut sensors_res: HashMap<String, Sensor> = HashMap::with_capacity(device_sensors.len());
+        let mut sensors_res: HashMap<String, ctrl::Sensor> = HashMap::with_capacity(device_sensors.len());
 
         for sensor_type in sensor_types {
             let sensor = sensors_res
                 .entry(sensor_type.table_name.clone())
-                .or_insert(Sensor {
+                .or_insert(ctrl::Sensor {
                     name: sensor_type.table_name.clone(),
                     data_map: HashMap::new(),
                 });
 
-            let typ = SensorDataType::from_db_type(&sensor_type.udt_name).ok_or(
+            let typ = sensor_data_type_from_udt(&sensor_type.udt_name).ok_or(
                 DeviceError::SensorDataUnknownType(
                     sensor_type.table_name.clone(),
                     sensor_type.column_name.clone(),
@@ -228,7 +125,7 @@ impl DeviceManager {
 
             sensor.data_map.insert(
                 sensor_type.column_name.clone(),
-                SensorDataEntry {
+                ctrl::SensorDataEntry {
                     name: sensor_type.column_name.clone(),
                     typ: typ,
                 },
@@ -237,7 +134,7 @@ impl DeviceManager {
 
         // Map sensors to its devices
         for device_sensor in device_sensors {
-            let device_id = DeviceID(device_sensor.device_id);
+            let device_id = DeviceID::new(device_sensor.device_id);
 
             let device = device_map
                 .get(&device_id)
@@ -281,7 +178,7 @@ impl DeviceManager {
         name: String,
         display_name: String,
         module_file: &'f mut F,
-    ) -> Result<model::DeviceInitData, Box<dyn Error>>
+    ) -> Result<ctrl::DeviceInitData, Box<dyn Error>>
     where
         F: AsyncRead + Unpin + ?Sized,
     {
@@ -305,32 +202,32 @@ impl DeviceManager {
             module_dir: module_dir.clone(),
             data_dir: data_dir.clone(),
             sensor_map: Default::default(),
-            init_state: DeviceInitState::Device,
+            init_state: ctrl::DeviceInitState::Device,
         };
 
         (*self.device_map.write().unwrap()).insert(id, Arc::new(RwLock::new(device)));
 
-        Ok(model::DeviceInitData {
+        Ok(ctrl::DeviceInitData {
             id,
             module_file: full_module_path,
             data_dir: data_dir.clone(),
             full_data_dir: self.full_data_dir(&data_dir),
             module_dir,
-            init_state: DeviceInitState::Device,
+            init_state: ctrl::DeviceInitState::Device,
         })
     }
 
     pub fn device_sensor_init(
         &self,
         device_id: &DeviceID,
-        sensors: Vec<Sensor>,
+        sensors: Vec<ctrl::Sensor>,
     ) -> Result<(), DeviceError> {
         let device = self.get_device(device_id)?;
         let mut device = device.write().unwrap();
         for sensor in sensors {
             device.sensor_map.insert(sensor.name.clone(), sensor);
         }
-        device.init_state = DeviceInitState::Sensors;
+        device.init_state = ctrl::DeviceInitState::Sensors;
 
         Ok(())
     }
@@ -342,7 +239,7 @@ impl DeviceManager {
         Ok(device.name.clone())
     }
 
-    pub fn get_device_init_state(&self, id: DeviceID) -> Result<DeviceInitState, DeviceError> {
+    pub fn get_device_init_state(&self, id: DeviceID) -> Result<ctrl::DeviceInitState, DeviceError> {
         let device = self.get_device(&id)?;
         let device = device.read().unwrap();
 
@@ -372,13 +269,13 @@ impl DeviceManager {
         self.device_map.read().unwrap().keys().copied().collect()
     }
 
-    pub fn get_init_data_all_devices(&self) -> Vec<model::DeviceInitData> {
+    pub fn get_init_data_all_devices(&self) -> Vec<ctrl::DeviceInitData> {
         let device_map = self.device_map.read().unwrap();
         let mut res = Vec::with_capacity(device_map.len());
         for (id, data_handler) in device_map.iter() {
             let data = data_handler.read().unwrap();
 
-            res.push(model::DeviceInitData {
+            res.push(ctrl::DeviceInitData {
                 id: id.clone(),
                 module_dir: data.module_dir.clone(),
                 data_dir: data.data_dir.clone(),
@@ -394,14 +291,14 @@ impl DeviceManager {
     /// get_device_info_list returns an unsorted list of devices.
     ///
     /// Devices must be configured to be returned (`init_state == DeviceInitState::Sensors`)
-    pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
+    pub fn get_device_info_list(&self) -> Vec<ctrl::DeviceInfo> {
         let device_map = self.device_map.read().unwrap();
         let mut res = Vec::with_capacity(device_map.len());
         for (id, data_handler) in device_map.iter() {
             let data = data_handler.read().unwrap();
 
-            if data.init_state == DeviceInitState::Sensors {
-                res.push(DeviceInfo {
+            if data.init_state == ctrl::DeviceInitState::Sensors {
+                res.push(ctrl::DeviceInfo {
                     id: id.clone(),
                     display_name: data.get_display_name().clone(),
                 })
@@ -419,23 +316,23 @@ impl DeviceManager {
     pub fn get_device_sensor_info(
         &self,
         device_id: DeviceID,
-    ) -> Result<Vec<SensorInfo>, DeviceError> {
+    ) -> Result<Vec<ctrl::SensorInfo>, DeviceError> {
         let device = self.get_device(&device_id)?;
         let device = device.read().unwrap();
 
-        if device.init_state != DeviceInitState::Sensors {
+        if device.init_state != ctrl::DeviceInitState::Sensors {
             return Err(DeviceError::DeviceNotConfigured(device_id));
         }
 
         Ok(device
             .sensor_map
             .iter()
-            .map(|(name, sensor)| SensorInfo {
+            .map(|(name, sensor)| ctrl::SensorInfo {
                 name: name.clone(),
                 data: sensor
                     .data_map
                     .iter()
-                    .map(|(name, data)| SensorDataEntry {
+                    .map(|(name, data)| ctrl::SensorDataEntry {
                         name: name.clone(),
                         typ: data.typ.clone(),
                     })
@@ -447,7 +344,7 @@ impl DeviceManager {
     fn inc_last_id(&self) -> DeviceID {
         let prev_last_id = self.last_id.fetch_add(1, Ordering::SeqCst);
 
-        DeviceID(prev_last_id + 1)
+        DeviceID::new(prev_last_id + 1)
     }
 
     fn get_device(&self, id: &DeviceID) -> Result<Arc<RwLock<Device>>, DeviceError> {
@@ -500,7 +397,7 @@ fn check_and_return_base_dir() -> PathBuf {
 }
 
 fn build_device_dir_name(id: &DeviceID, name: &String) -> PathBuf {
-    PathBuf::from_str(&(id.0.to_string() + "-" + &name)).unwrap()
+    PathBuf::from_str(&(id.get_raw().to_string() + "-" + &name)).unwrap()
 }
 
 async fn create_file<'a, R: AsyncRead + Unpin + ?Sized, P: AsRef<Path>>(
@@ -515,4 +412,18 @@ async fn create_file<'a, R: AsyncRead + Unpin + ?Sized, P: AsRef<Path>>(
     io::copy(data, &mut file).await?;
 
     Ok(())
+}
+
+fn sensor_data_type_from_udt(udt_name: &str) -> Option<ctrl::SensorDataType> {
+    match udt_name {
+        "int2" => Some(ctrl::SensorDataType::Int16),
+        "int4" => Some(ctrl::SensorDataType::Int32),
+        "int8" => Some(ctrl::SensorDataType::Int64),
+        "float4" => Some(ctrl::SensorDataType::Float32),
+        "float8" => Some(ctrl::SensorDataType::Float64),
+        "timestamp" => Some(ctrl::SensorDataType::Timestamp),
+        "text" => Some(ctrl::SensorDataType::String),
+        "jsonb" => Some(ctrl::SensorDataType::JSON),
+        _ => None,
+    }
 }
