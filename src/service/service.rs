@@ -242,17 +242,16 @@ impl IService for Service {
     async fn save_sensor_data(
         &self,
         id: ctrl::DeviceID,
-        sensor_name: String,
-        data_list: Vec<ctrl::SensorData>,
+        msg: ctrl::SensorMsg,
     ) -> Result<(), Box<dyn std::error::Error>> {
         // TODO: data validation?
-        let table_name = quote_string(&sensor_table_name(id.get_raw(), &sensor_name));
+        let table_name = quote_string(&sensor_table_name(id.get_raw(), &msg.name));
         let mut b = sq::StatementBuilder::new();
 
-        let mut cols = Vec::with_capacity(data_list.len());
-        let mut vals: Vec<Box<dyn ArgType>> = Vec::with_capacity(data_list.len());
+        let mut cols = Vec::with_capacity(msg.data.len());
+        let mut vals: Vec<Box<dyn ArgType>> = Vec::with_capacity(msg.data.len());
 
-        for data in data_list {
+        for data in msg.data {
             cols.push(data.name);
             vals.push(Box::<db_model::SensorDataTypeValue>::from(data.data))
         }

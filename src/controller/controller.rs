@@ -6,28 +6,26 @@ use std::{
 
 use tokio::{io::AsyncRead, runtime::Handle};
 
-use crate::module;
-
 use super::error::*;
-use super::interface::service;
+use super::interface::{service::IService, module::{IModule, IModuleFactory}};
 use super::model::internal::*;
 use super::model::*;
 use super::msg;
 
-#[derive(Clone)]
-pub struct Controller<S: service::IService> {
+pub struct Controller<S: IService, M: IModule, MF: IModuleFactory<M>> {
+    _module_factory: std::marker::PhantomData<MF>,
     svc: S,
     tokio_handle: Handle,
-    devices: Arc<RwLock<HashMap<i32, Arc<Mutex<Device<S>>>>>>,
+    devices: Arc<RwLock<HashMap<i32, Arc<Mutex<Device<S, M>>>>>>,
 }
 
-impl<S: service::IService + 'static> Controller<S> {
+impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Controller<S, M, MF> {
     pub async fn new(tokio_handle: Handle, svc: S) -> Result<Self, Box<dyn Error>> {
         let device_init_datas = svc.get_init_data_all_devices();
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let m = module::Module::new(&data.module_file, &data.full_data_dir).map_err(|err| {
+            let m = MF::create_module(&data.module_file, &data.full_data_dir).map_err(|err| {
                 format!(
                     "failed to init module; file: {}; err: {err}",
                     data.module_file.to_str().unwrap_or("[invalid file path]")
@@ -55,6 +53,7 @@ impl<S: service::IService + 'static> Controller<S> {
         }
 
         Ok(Self {
+            _module_factory: std::marker::PhantomData,
             svc,
             tokio_handle,
             devices: Arc::new(RwLock::new(mods)),
@@ -69,11 +68,11 @@ impl<S: service::IService + 'static> Controller<S> {
         let device_init_data = self.svc.start_device_init(name, module_file).await?;
 
         let res = {
-            let mut m = module::Module::new(
+            let mut m = MF::create_module(
                 &device_init_data.module_file,
                 &device_init_data.full_data_dir,
             )?;
-            let mut device_info = m.obtain_device_info()?;
+            let device_info = m.obtain_device_conn_info()?;
 
             self.devices.write().unwrap().insert(
                 device_init_data.id.get_raw(),
@@ -86,7 +85,7 @@ impl<S: service::IService + 'static> Controller<S> {
 
             Ok(DeviceConnData {
                 id: device_init_data.id.clone(),
-                conn_params: device_info.drain(..).map(|v| v.into()).collect(),
+                conn_params: device_info,
             })
         };
 
@@ -104,7 +103,7 @@ impl<S: service::IService + 'static> Controller<S> {
 
         let mut conn_conf = conf.into();
 
-        device.module.connect_device(&mut conn_conf)?;
+        device.module.connect_device(conn_conf)?;
 
         Ok(())
     }
@@ -121,20 +120,17 @@ impl<S: service::IService + 'static> Controller<S> {
     pub async fn configure_device(
         &self,
         id: i32,
-        mut confs: Vec<DeviceConfEntry>,
+        confs: Vec<DeviceConfEntry>,
     ) -> Result<(), Box<dyn Error>> {
         {
             let device_lock = self.get_device(&id)?;
             let mut device = device_lock.lock().unwrap();
 
-            let mut device_conf = confs.drain(..).map(|v| v.into()).collect();
-
-            device.module.configure_device(&mut device_conf)?;
+            device.module.configure_device(confs)?;
 
             let sensor_infos = device.module.obtain_sensor_type_infos()?;
-            let sensor = service_sensor_from_module(sensor_infos);
 
-            self.svc.device_sensor_init(device.id, sensor).await?;
+            self.svc.device_sensor_init(device.id, sensor_infos).await?;
         }
 
         // Start receiving data from device's sensors
@@ -233,7 +229,7 @@ impl<S: service::IService + 'static> Controller<S> {
         self.svc.get_monitor_conf_list(filter).await
     }
 
-    fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device<S>>>, ControllerError> {
+    fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device<S, M>>>, ControllerError> {
         self.devices
             .read()
             .unwrap()
@@ -250,39 +246,13 @@ impl<S: service::IService + 'static> Controller<S> {
     }
 }
 
-fn service_sensor_from_module(mut sensor_type_infos: Vec<module::SensorTypeInfo>) -> Vec<Sensor> {
-    sensor_type_infos
-        .drain(..)
-        .map(|sensor| {
-            let mut data_map = HashMap::with_capacity(sensor.data_type_infos.len());
-
-            for data_type_info in sensor.data_type_infos {
-                data_map.insert(
-                    data_type_info.name.clone(),
-                    SensorDataEntry {
-                        name: data_type_info.name,
-                        typ: service_sensor_data_type_from_module(data_type_info.typ),
-                    },
-                );
-            }
-
-            Sensor {
-                name: sensor.name,
-                data_map: data_map,
-            }
-        })
-        .collect()
-}
-
-fn service_sensor_data_type_from_module(data_type: module::SensorDataType) -> SensorDataType {
-    match data_type {
-        module::SensorDataType::Int16 => SensorDataType::Int16,
-        module::SensorDataType::Int32 => SensorDataType::Int32,
-        module::SensorDataType::Int64 => SensorDataType::Int64,
-        module::SensorDataType::Float32 => SensorDataType::Float32,
-        module::SensorDataType::Float64 => SensorDataType::Float64,
-        module::SensorDataType::Timestamp => SensorDataType::Timestamp,
-        module::SensorDataType::String => SensorDataType::String,
-        module::SensorDataType::JSON => SensorDataType::JSON,
+impl<S: IService, M: IModule, MF: IModuleFactory<M>> Clone for Controller<S, M, MF> {
+    fn clone(&self) -> Self {
+        Self {
+            _module_factory: std::marker::PhantomData,
+            svc: self.svc.clone(),
+            tokio_handle: self.tokio_handle.clone(),
+            devices: self.devices.clone(),
+        }
     }
 }

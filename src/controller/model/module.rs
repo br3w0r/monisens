@@ -1,7 +1,3 @@
-use std::ffi::CString;
-
-use crate::module;
-
 #[derive(Debug)]
 pub enum ConnParamType {
     Bool,
@@ -11,31 +7,9 @@ pub enum ConnParamType {
     ChoiceList,
 }
 
-impl From<module::ConnParamType> for ConnParamType {
-    fn from(value: module::ConnParamType) -> Self {
-        match value {
-            module::ConnParamType::Bool => ConnParamType::Bool,
-            module::ConnParamType::Int => ConnParamType::Int,
-            module::ConnParamType::Float => ConnParamType::Float,
-            module::ConnParamType::String => ConnParamType::String,
-            module::ConnParamType::ChoiceList => ConnParamType::ChoiceList,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum ConnParamEntryInfo {
     ChoiceList(ConnParamChoiceListInfo),
-}
-
-impl From<module::ConnParamEntryInfo> for ConnParamEntryInfo {
-    fn from(value: module::ConnParamEntryInfo) -> Self {
-        match value {
-            module::ConnParamEntryInfo::ChoiceList(v) => {
-                ConnParamEntryInfo::ChoiceList(ConnParamChoiceListInfo { choices: v.choices })
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -50,16 +24,6 @@ pub struct ConnParamConf {
     pub info: Option<ConnParamEntryInfo>,
 }
 
-impl From<module::ConnParamInfo> for ConnParamConf {
-    fn from(value: module::ConnParamInfo) -> Self {
-        Self {
-            name: value.name,
-            typ: value.typ.into(),
-            info: value.info.map(|v| v.into()),
-        }
-    }
-}
-
 pub enum ConnParamValType {
     Bool(bool),
     Int(i32),
@@ -67,35 +31,12 @@ pub enum ConnParamValType {
     String(String),
 }
 
-impl From<ConnParamValType> for module::ConnParamValType {
-    fn from(value: ConnParamValType) -> Self {
-        match value {
-            ConnParamValType::Bool(v) => module::ConnParamValType::Bool(v),
-            ConnParamValType::Int(v) => module::ConnParamValType::Int(v),
-            ConnParamValType::Float(v) => module::ConnParamValType::Float(v),
-            ConnParamValType::String(v) => module::ConnParamValType::String(v),
-        }
-    }
-}
-
 pub struct ConnParam {
     pub name: String,
     pub value: ConnParamValType,
 }
 
-impl From<ConnParam> for module::ConnParam {
-    fn from(value: ConnParam) -> Self {
-        Self::new(value.name, value.value.into())
-    }
-}
-
 pub type DeviceConnectConf = Vec<ConnParam>;
-
-impl From<DeviceConnectConf> for module::DeviceConnectConf {
-    fn from(mut value: DeviceConnectConf) -> Self {
-        Self::new(value.drain(..).map(|v| v.into()).collect())
-    }
-}
 
 #[derive(Debug)]
 pub struct DeviceConfInfoEntry {
@@ -104,23 +45,7 @@ pub struct DeviceConfInfoEntry {
     pub data: DeviceConfInfoEntryType,
 }
 
-impl From<module::DeviceConfInfoEntry> for DeviceConfInfoEntry {
-    fn from(value: module::DeviceConfInfoEntry) -> Self {
-        Self {
-            id: value.id,
-            name: value.name,
-            data: value.data.into(),
-        }
-    }
-}
-
 pub type DeviceConfInfo = Vec<DeviceConfInfoEntry>;
-
-impl From<module::DeviceConfInfo> for DeviceConfInfo {
-    fn from(mut value: module::DeviceConfInfo) -> Self {
-        value.device_confs.drain(..).map(|v| v.into()).collect()
-    }
-}
 
 #[derive(Debug)]
 pub enum DeviceConfInfoEntryType {
@@ -132,74 +57,6 @@ pub enum DeviceConfInfoEntryType {
     FloatRange(DeviceConfInfoEntryFloatRange),
     JSON(DeviceConfInfoEntryJSON),
     ChoiceList(DeviceConfInfoEntryChoiceList),
-}
-
-impl From<module::DeviceConfInfoEntryType> for DeviceConfInfoEntryType {
-    fn from(value: module::DeviceConfInfoEntryType) -> Self {
-        match value {
-            module::DeviceConfInfoEntryType::Section(v) => {
-                DeviceConfInfoEntryType::Section(v.into())
-            }
-            module::DeviceConfInfoEntryType::String(v) => {
-                DeviceConfInfoEntryType::String(DeviceConfInfoEntryString {
-                    required: v.required,
-                    default: v.default,
-                    min_len: v.min_len,
-                    max_len: v.max_len,
-                    match_regex: v.match_regex,
-                })
-            }
-            module::DeviceConfInfoEntryType::Int(v) => {
-                DeviceConfInfoEntryType::Int(DeviceConfInfoEntryInt {
-                    required: v.required,
-                    default: v.default,
-                    lt: v.lt,
-                    gt: v.gt,
-                    neq: v.neq,
-                })
-            }
-            module::DeviceConfInfoEntryType::IntRange(v) => {
-                DeviceConfInfoEntryType::IntRange(DeviceConfInfoEntryIntRange {
-                    required: v.required,
-                    def_from: v.def_from,
-                    def_to: v.def_to,
-                    min: v.min,
-                    max: v.max,
-                })
-            }
-            module::DeviceConfInfoEntryType::Float(v) => {
-                DeviceConfInfoEntryType::Float(DeviceConfInfoEntryFloat {
-                    required: v.required,
-                    default: v.default,
-                    lt: v.lt,
-                    gt: v.gt,
-                    neq: v.neq,
-                })
-            }
-            module::DeviceConfInfoEntryType::FloatRange(v) => {
-                DeviceConfInfoEntryType::FloatRange(DeviceConfInfoEntryFloatRange {
-                    required: v.required,
-                    def_from: v.def_from,
-                    def_to: v.def_to,
-                    min: v.min,
-                    max: v.max,
-                })
-            }
-            module::DeviceConfInfoEntryType::JSON(v) => {
-                DeviceConfInfoEntryType::JSON(DeviceConfInfoEntryJSON {
-                    required: v.required,
-                    default: v.default,
-                })
-            }
-            module::DeviceConfInfoEntryType::ChoiceList(v) => {
-                DeviceConfInfoEntryType::ChoiceList(DeviceConfInfoEntryChoiceList {
-                    required: v.required,
-                    default: v.default,
-                    choices: v.choices,
-                })
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -276,27 +133,57 @@ pub enum DeviceConfType {
     ChoiceList(i32),
 }
 
-impl From<DeviceConfType> for module::DeviceConfType {
-    fn from(value: DeviceConfType) -> Self {
-        match value {
-            DeviceConfType::String(v) => module::DeviceConfType::String(CString::new(v).unwrap()),
-            DeviceConfType::Int(v) => module::DeviceConfType::Int(v),
-            DeviceConfType::IntRange(v) => module::DeviceConfType::IntRange(v),
-            DeviceConfType::Float(v) => module::DeviceConfType::Float(v),
-            DeviceConfType::FloatRange(v) => module::DeviceConfType::FloatRange(v),
-            DeviceConfType::JSON(v) => module::DeviceConfType::JSON(CString::new(v).unwrap()),
-            DeviceConfType::ChoiceList(v) => module::DeviceConfType::ChoiceList(v),
-        }
-    }
-}
-
 pub struct DeviceConfEntry {
     pub id: i32,
     pub data: Option<DeviceConfType>,
 }
 
-impl From<DeviceConfEntry> for module::DeviceConfEntry {
-    fn from(value: DeviceConfEntry) -> Self {
-        module::DeviceConfEntry::new(value.id, value.data.map(|v| v.into()))
-    }
+#[derive(Debug)]
+pub struct Message {
+    pub msg: MessageType,
+}
+
+#[derive(Debug)]
+pub enum MessageType {
+    Sensor(SensorMsg),
+    Common(CommonMsg),
+}
+
+#[derive(Debug)]
+pub struct SensorMsg {
+    pub name: String,
+    pub data: Vec<SensorData>,
+}
+
+pub type SensorDataList = Vec<SensorData>;
+
+#[derive(Debug)]
+pub struct SensorData {
+    pub name: String,
+    pub data: SensorDataTypeValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum SensorDataTypeValue {
+    Int16(i16),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
+    Timestamp(chrono::NaiveDateTime),
+    String(String),
+    JSON(String),
+}
+
+#[derive(Debug)]
+pub struct CommonMsg {
+    pub code: MsgCode,
+    pub msg: String,
+}
+
+#[derive(Debug)]
+pub enum MsgCode {
+    Info,
+    Warn,
+    Error,
 }

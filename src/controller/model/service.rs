@@ -1,5 +1,7 @@
 use std::{collections::HashMap, fmt, path::PathBuf};
 
+use super::module;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum DeviceInitState {
     Device,
@@ -47,8 +49,8 @@ pub struct DeviceInitData {
 
 #[derive(Default)]
 pub struct SensorDataFilter {
-    pub from: Option<(String, SensorDataTypeValue)>,
-    pub to: Option<(String, SensorDataTypeValue)>,
+    pub from: Option<(String, module::SensorDataTypeValue)>,
+    pub to: Option<(String, module::SensorDataTypeValue)>,
     pub limit: Option<i32>,
     pub sort: Option<Sort>,
 }
@@ -57,25 +59,6 @@ pub struct SensorDataFilter {
 pub struct Sort {
     pub field: String,
     pub order: SortDir,
-}
-
-pub type SensorDataList = Vec<SensorData>;
-
-pub struct SensorData {
-    pub name: String,
-    pub data: SensorDataTypeValue,
-}
-
-#[derive(Debug, Clone)]
-pub enum SensorDataTypeValue {
-    Int16(i16),
-    Int32(i32),
-    Int64(i64),
-    Float32(f32),
-    Float64(f64),
-    Timestamp(chrono::NaiveDateTime),
-    String(String),
-    JSON(String),
 }
 
 /// DeviceInfo contains basic info about device that may be read by user
@@ -90,6 +73,7 @@ pub struct SensorDataEntry {
     pub typ: SensorDataType,
 }
 
+// TODO: move to module.rs?
 pub struct Sensor {
     /// == sensor's table name // iss-96: this is not true. It's a human-readable name
     pub name: String,

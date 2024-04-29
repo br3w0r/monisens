@@ -40,8 +40,7 @@ pub trait IService: Sync + Send + Clone {
     async fn save_sensor_data(
         &self,
         id: model::DeviceID,
-        sensor_name: String,
-        data_list: Vec<model::SensorData>,
+        msg: model::SensorMsg,
     ) -> Result<(), Box<dyn Error>>;
 
     /// `get_sensor_data` returns sensor data for device.

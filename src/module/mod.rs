@@ -1,6 +1,7 @@
 mod bindings_gen;
 pub mod error;
 mod model;
+mod conv;
 
 use libc::c_void;
 use libloading::{self, Symbol};
@@ -9,14 +10,10 @@ use std::{error::Error, ffi::CString, path::Path};
 use bindings_gen as bg;
 use model::*;
 
-pub use self::error::*;
+use crate::controller::interface::module::{IModule, IModuleFactory, MsgHandler};
+use crate::controller;
 
-pub use model::{
-    CommonMsg, ConnParam, ConnParamEntryInfo, ConnParamInfo, ConnParamType, ConnParamValType,
-    DeviceConfEntry, DeviceConfInfo, DeviceConfInfoEntry, DeviceConfInfoEntryType, DeviceConfType,
-    DeviceConnectConf, Message, MessageType, MsgCode, MsgHandler, SensorDataType, SensorMsg,
-    SensorMsgData, SensorMsgDataType, SensorTypeInfo,
-};
+pub use self::error::*;
 
 pub struct Module {
     #[allow(dead_code)]
@@ -35,8 +32,104 @@ impl Drop for Module {
     }
 }
 
-impl Module {
-    pub fn new<P: AsRef<Path>>(mod_path: P, data_dir: P) -> Result<Module, Box<dyn Error>> {
+impl IModule for Module {
+    fn obtain_device_conn_info(&mut self) -> Result<Vec<controller::ConnParamConf>, Box<dyn Error>> {
+        let mut conf_rec: DeficeInfoRec = Ok(Vec::new());
+        unsafe {
+            self.funcs.obtain_device_info.unwrap()(
+                self.handle.handler(),
+                &mut conf_rec as *mut DeficeInfoRec as *mut c_void,
+                Some(device_info_callback),
+            )
+        };
+
+        let res = conf_rec?;
+
+        Ok(res)
+    }
+
+    fn connect_device(&mut self, conf: controller::DeviceConnectConf) -> Result<(), Box<dyn Error>> {
+        let mut c_string_handle = conv::CStringHandle::new();
+        let conn_params = conv::conn_param_to_bg(&conf, &mut c_string_handle);
+        let mut conf = conv::bg_conn_params_to_device_connect_conf(&conn_params);
+        
+        let err =
+            unsafe { self.funcs.connect_device.unwrap()(self.handle.handler(), &mut conf as _) };
+
+        convert_com_error(err)?;
+
+        Ok(())
+    }
+
+    fn obtain_device_conf_info(&mut self) -> Result<controller::DeviceConfInfo, Box<dyn Error>> {
+        let mut conf_rec: DeviceConfInfoRec = Ok(controller::DeviceConfInfo::new());
+        unsafe {
+            self.funcs.obtain_device_conf_info.unwrap()(
+                self.handle.handler(),
+                &mut conf_rec as *mut DeviceConfInfoRec as *mut c_void,
+                Some(device_conf_info_callback),
+            )
+        };
+
+        let res = conf_rec?;
+
+        Ok(res)
+    }
+
+    fn configure_device(&mut self, confs: Vec<controller::DeviceConfEntry>) -> Result<(), Box<dyn Error>> {
+        let mut c_string_handle = conv::CStringHandle::new();
+        let confs_bg = conv::device_conf_entry_vec_to_bg(&confs, &mut c_string_handle);
+        let mut device_conf_raw = conv::bg_device_conf_entry_vec_to_device_conf(&confs_bg);
+
+        let err = unsafe {
+            self.funcs.configure_device.unwrap()(self.handle.handler(), &mut device_conf_raw as _)
+        };
+
+        convert_com_error(err)?;
+
+        Ok(())
+    }
+
+    fn obtain_sensor_type_infos(&mut self) -> Result<Vec<controller::Sensor>, Box<dyn Error>> {
+        let mut infos_rec: SensorTypeInfosRec = Ok(vec![]);
+        unsafe {
+            self.funcs.obtain_sensor_type_infos.unwrap()(
+                self.handle.handler(),
+                &mut infos_rec as *mut SensorTypeInfosRec as *mut c_void,
+                Some(sensor_type_infos_callback),
+            )
+        };
+
+        let res = infos_rec?;
+
+        Ok(res)
+    }
+
+    fn start<H: MsgHandler + 'static>(&mut self, msg_handler: H) -> Result<(), Box<dyn Error>> {
+        self.msg_handle = Some(MsgHandle::new(msg_handler));
+
+        unsafe {
+            self.funcs.start.unwrap()(
+                self.handle.handler(),
+                self.msg_handle.as_ref().unwrap() as *const MsgHandle as *mut c_void,
+                Some(handle_msg_callback),
+            );
+        }
+
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), Box<dyn Error>> {
+        let err = unsafe { self.funcs.stop.unwrap()(self.handle.handler()) };
+
+        convert_com_error(err)?;
+
+        Ok(())
+    }
+}
+
+impl IModuleFactory<Module> for Module {
+    fn create_module<P: AsRef<Path>>(mod_path: P, data_dir: P) -> Result<Module, Box<dyn Error>> {
         // TODO: unsafe {} where it's really unsafe
         unsafe {
             let lib = libloading::Library::new(mod_path.as_ref().as_os_str())?;
@@ -78,91 +171,5 @@ impl Module {
                 msg_handle: None,
             })
         }
-    }
-
-    pub fn obtain_device_info(&mut self) -> DeficeInfoRec {
-        let mut conf_rec: DeficeInfoRec = Ok(Vec::new());
-        unsafe {
-            self.funcs.obtain_device_info.unwrap()(
-                self.handle.handler(),
-                &mut conf_rec as *mut DeficeInfoRec as *mut c_void,
-                Some(device_info_callback),
-            )
-        };
-
-        conf_rec
-    }
-
-    pub fn connect_device(&mut self, conf: &mut DeviceConnectConf) -> Result<(), ComError> {
-        let mut c_info = bg::DeviceConnectConf::from(conf);
-        let err =
-            unsafe { self.funcs.connect_device.unwrap()(self.handle.handler(), &mut c_info as _) };
-
-        convert_com_error(err)
-    }
-
-    pub fn obtain_device_conf_info(&mut self) -> DeviceConfInfoRec {
-        let mut conf_rec: DeviceConfInfoRec = Ok(DeviceConfInfo::new(0));
-        unsafe {
-            self.funcs.obtain_device_conf_info.unwrap()(
-                self.handle.handler(),
-                &mut conf_rec as *mut DeviceConfInfoRec as *mut c_void,
-                Some(device_conf_info_callback),
-            )
-        };
-
-        conf_rec
-    }
-
-    /// `Module::configure_device` sends config to the module.
-    ///
-    /// `confs` **must**
-    /// - include all entries with ids returned from `Module::obtain_device_conf_info`
-    /// - pass validation based on info from `Module::obtain_device_conf_info`
-    ///
-    /// Thus, `Module::obtain_device_conf_info` **must** be called before `Module::configure_device`
-    pub fn configure_device(&mut self, confs: &mut Vec<DeviceConfEntry>) -> Result<(), ComError> {
-        // TODO: validate confs (issue #60)
-        let confs_raw = build_device_conf_entry_raw_vec(confs);
-        let mut device_conf_raw = build_device_conf(&confs_raw);
-
-        let err = unsafe {
-            self.funcs.configure_device.unwrap()(self.handle.handler(), &mut device_conf_raw as _)
-        };
-
-        convert_com_error(err)
-    }
-
-    pub fn obtain_sensor_type_infos(&mut self) -> SensorTypeInfosRec {
-        let mut infos_rec: SensorTypeInfosRec = Ok(vec![]);
-        unsafe {
-            self.funcs.obtain_sensor_type_infos.unwrap()(
-                self.handle.handler(),
-                &mut infos_rec as *mut SensorTypeInfosRec as *mut c_void,
-                Some(sensor_type_infos_callback),
-            )
-        };
-
-        infos_rec
-    }
-
-    pub fn start<H: MsgHandler + 'static>(&mut self, msg_handler: H) -> Result<(), ComError> {
-        self.msg_handle = Some(MsgHandle::new(msg_handler));
-
-        unsafe {
-            self.funcs.start.unwrap()(
-                self.handle.handler(),
-                self.msg_handle.as_ref().unwrap() as *const MsgHandle as *mut c_void,
-                Some(handle_msg_callback),
-            );
-        }
-
-        Ok(())
-    }
-
-    pub fn stop(&mut self) -> Result<(), ComError> {
-        let err = unsafe { self.funcs.stop.unwrap()(self.handle.handler()) };
-
-        convert_com_error(err)
     }
 }

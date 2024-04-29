@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
         .map_err(|err| format!("failed to init service: {err}"))?;
 
-    let ctrl = controller::Controller::new(Handle::current(), svc)
+    let ctrl: controller::Controller<service::Service, module::Module, module::Module> = controller::Controller::new(Handle::current(), svc)
         .await
         .map_err(|err| format!("failed to init controller: {err}"))?;
 

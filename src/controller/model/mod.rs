@@ -20,7 +20,7 @@ pub struct GetSensorDataPayload {
     pub sensor: String,
     pub fields: Vec<String>,
     pub sort: Sort,
-    pub from: Option<service::SensorDataTypeValue>,
+    pub from: Option<module::SensorDataTypeValue>,
     pub limit: Option<i32>,
 }
 

@@ -14,10 +14,11 @@ use model::*;
 
 use crate::controller::Controller;
 use crate::service::Service;
+use crate::module::Module;
 
 pub async fn start_server(
     host: String,
-    ctrl: Controller<Service>,
+    ctrl: Controller<Service, Module, Module>,
     app_config: config::AppConfig,
 ) -> Result<(), Box<dyn Error>> {
     #[derive(OpenApi)]
