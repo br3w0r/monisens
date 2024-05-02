@@ -1,10 +1,13 @@
 use std::{
     collections::HashMap,
-    error::Error,
+    path::Path,
     sync::{Arc, Mutex, RwLock},
 };
 
 use tokio::{io::AsyncRead, runtime::Handle};
+
+use crate::logger;
+use crate::{kv_any, kv_val, kvs};
 
 use super::error::*;
 use super::interface::{
@@ -60,32 +63,22 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         name: String,
         module_file: &'f mut F,
     ) -> Result<DeviceConnData, ControllerError> {
-        let device_init_data = self.svc.start_device_init(name, module_file).await?;
+        let device_init_data = self
+            .svc
+            .start_device_init(name.clone(), module_file)
+            .await?;
 
-        let res = {
-            let mut m = MF::create_module(
-                &device_init_data.module_file,
-                &device_init_data.full_data_dir,
-            )?;
-            let device_info = m.obtain_device_conn_info()?;
+        let res = self.init_device(
+            &device_init_data.module_file,
+            &device_init_data.full_data_dir,
+            device_init_data.id.clone(),
+        );
 
-            self.devices.write().unwrap().insert(
-                device_init_data.id.get_raw(),
-                Arc::new(Mutex::new(Device {
-                    id: device_init_data.id.clone(),
-                    module: m,
-                    msg_handler: None,
-                })),
+        if let Err(ref err) = res {
+            logger::error_kv(
+                "failed to init device",
+                kvs!("name" => kv_any!(&name), "error" => kv_val!(err)),
             );
-
-            Ok(DeviceConnData {
-                id: device_init_data.id.clone(),
-                conn_params: device_info,
-            })
-        };
-
-        if let Err(_) = res {
-            // TODO: logging?
             self.svc.interrupt_device_init(device_init_data.id).await?;
         }
 
@@ -143,6 +136,30 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         self.devices.write().unwrap().remove(&id);
 
         Ok(())
+    }
+
+    fn init_device<P: AsRef<Path>>(
+        &self,
+        mod_path: P,
+        data_dir: P,
+        device_id: DeviceID,
+    ) -> Result<DeviceConnData, ControllerError> {
+        let mut m = MF::create_module(mod_path, data_dir)?;
+        let device_info = m.obtain_device_conn_info()?;
+
+        self.devices.write().unwrap().insert(
+            device_id.get_raw(),
+            Arc::new(Mutex::new(Device {
+                id: device_id.clone(),
+                module: m,
+                msg_handler: None,
+            })),
+        );
+
+        Ok(DeviceConnData {
+            id: device_id,
+            conn_params: device_info,
+        })
     }
 
     fn start_device(&self, id: i32) -> Result<(), ControllerError> {

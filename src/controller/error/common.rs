@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{backtrace::Backtrace, error::Error};
+use std::{backtrace::Backtrace, error::Error, fmt::write};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ErrorType {
@@ -55,12 +55,14 @@ impl fmt::Display for CommonError {
             None => write!(f, "None")?,
         }
 
-        write!(
-            f,
-            "\nBacktrace:\n\
-            {}",
-            self.backtrace
-        )
+        write!(f, "\nBacktrace:")?;
+
+        match self.backtrace.status() {
+            std::backtrace::BacktraceStatus::Unsupported => write!(f, "[unsupported]"),
+            std::backtrace::BacktraceStatus::Disabled => write!(f, "[disabled]"),
+            std::backtrace::BacktraceStatus::Captured => write!(f, "\n{}", self.backtrace),
+            _ => write!(f, "[unknown]"),
+        }
     }
 }
 

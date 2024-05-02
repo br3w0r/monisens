@@ -4,6 +4,8 @@ use thiserror::Error;
 
 pub use common::*;
 
+use crate::logger;
+
 #[derive(Error, Debug)]
 pub enum ControllerError {
     #[error("unknown device with id {0}")]
@@ -32,5 +34,11 @@ impl From<CommonError> for ControllerError {
 impl From<Box<dyn std::error::Error + 'static>> for ControllerError {
     fn from(e: Box<dyn std::error::Error + 'static>) -> Self {
         Self::Other(e)
+    }
+}
+
+impl logger::KVValue for &ControllerError {
+    fn write_value(&self, f: &mut Box<dyn std::io::Write + Send>) -> std::io::Result<()> {
+        write!(f, "{}", self)
     }
 }

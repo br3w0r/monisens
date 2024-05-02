@@ -137,6 +137,6 @@ fn get_exec_dir() -> std::io::Result<std::path::PathBuf> {
 }
 
 fn log_fatal_err<E: fmt::Debug + fmt::Display>(msg: &str, err: E) {
-    logger::error_kv(msg, Some(vec![logger::KV::new("error".into(), &err)]));
+    logger::error_kv(msg, kvs!("error" => kv_any!(&err)));
     println!("============ Fatal error ============\n{}", err);
 }

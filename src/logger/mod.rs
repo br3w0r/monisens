@@ -1,6 +1,7 @@
+use core::fmt;
 use lazy_static::lazy_static;
 use std::{
-    fmt::{Debug, Write},
+    fmt::Debug,
     sync::{Arc, Mutex, RwLock},
     time::{Duration, SystemTime},
     vec,
@@ -38,24 +39,24 @@ pub enum LogLevel {
     Fatal,
 }
 
-#[derive(Debug, Clone)]
-enum KVType<'kv> {
-    Timestamp(Duration),
-    Any(Arc<dyn std::fmt::Debug + 'kv>),
+pub trait KVValue {
+    fn write_value(&self, f: &mut Box<dyn std::io::Write + Send>) -> std::io::Result<()>;
 }
 
-#[derive(Clone)]
+pub enum KVType<'kv> {
+    Timestamp(Duration),
+    KVValue(Box<dyn KVValue + 'kv>),
+    Any(Box<dyn std::fmt::Debug + 'kv>),
+}
+
 pub struct KV<'kv> {
     key: String,
     value: KVType<'kv>,
 }
 
 impl<'kv> KV<'kv> {
-    pub fn new<T: std::fmt::Debug + 'kv>(key: String, value: T) -> Self {
-        Self {
-            key,
-            value: KVType::Any(Arc::new(value)),
-        }
+    pub fn new(key: String, value: KVType<'kv>) -> Self {
+        Self { key, value }
     }
 
     fn default_kvs() -> Vec<KV<'kv>> {
@@ -89,16 +90,6 @@ impl<'kv> KV<'kv> {
     }
 }
 
-impl<'kv> Debug for KV<'kv> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_char('"')?;
-        f.write_str(&self.key)?;
-        f.write_str("\": ")?;
-
-        self.value.fmt(f)
-    }
-}
-
 pub trait LogWriter {
     fn log<'log>(&mut self, level: &'log LogLevel, msg: &'log str, kvs: &Vec<KV<'log>>);
 }
@@ -128,17 +119,36 @@ impl Logger {
     }
 }
 
-struct StdLogger {}
+struct StdLogger {
+    std_out_writer: Box<dyn std::io::Write + Send>,
+}
 
 impl StdLogger {
     fn new() -> LogWriterType {
-        Arc::new(Mutex::new(Self {}))
+        Arc::new(Mutex::new(Self {
+            std_out_writer: Box::new(std::io::stdout()),
+        }))
     }
 }
 
 impl LogWriter for StdLogger {
     fn log<'log>(&mut self, level: &'log LogLevel, msg: &'log str, kvs: &Vec<KV<'log>>) {
-        println!("level: {:?}; msg: {}, KVs: {:?}", level, msg, kvs);
+        print!(">>> level: {:?}; msg: {}, KVs: {{", level, msg);
+        for (i, kv) in kvs.iter().enumerate() {
+            if i > 0 {
+                print!(", ");
+            }
+
+            print!("[{}]: ", kv.key);
+            match kv.value {
+                KVType::Timestamp(ref d) => print!("{:?}, ", d),
+                KVType::KVValue(ref val) => {
+                    let _ = val.write_value(&mut self.std_out_writer);
+                }
+                KVType::Any(ref val) => print!("{:?}, ", val),
+            }
+        }
+        print!("}}\n");
     }
 }
 
@@ -147,4 +157,18 @@ macro_rules! kvs {
     ($($key:expr => $value:expr),+) => (
         Some(vec![$($crate::logger::KV::new($key.into(), $value),)+])
     )
+}
+
+#[macro_export]
+macro_rules! kv_any {
+    ($value:expr) => {
+        $crate::logger::KVType::Any(Box::new($value))
+    };
+}
+
+#[macro_export]
+macro_rules! kv_val {
+    ($value:expr) => {
+        $crate::logger::KVType::KVValue(Box::new($value))
+    };
 }
