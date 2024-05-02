@@ -11,8 +11,8 @@ use tokio::fs;
 use tokio::io;
 use tokio::io::AsyncRead;
 
-use crate::{app, debug_from_display};
 use crate::controller::{self as ctrl, DeviceID};
+use crate::{app, debug_from_display};
 
 use super::db_model;
 
@@ -106,15 +106,17 @@ impl DeviceManager {
         }
 
         // Init all sensors
-        let mut sensors_res: HashMap<String, ctrl::Sensor> = HashMap::with_capacity(device_sensors.len());
+        let mut sensors_res: HashMap<String, ctrl::Sensor> =
+            HashMap::with_capacity(device_sensors.len());
 
         for sensor_type in sensor_types {
-            let sensor = sensors_res
-                .entry(sensor_type.table_name.clone())
-                .or_insert(ctrl::Sensor {
-                    name: sensor_type.table_name.clone(),
-                    data_map: HashMap::new(),
-                });
+            let sensor =
+                sensors_res
+                    .entry(sensor_type.table_name.clone())
+                    .or_insert(ctrl::Sensor {
+                        name: sensor_type.table_name.clone(),
+                        data_map: HashMap::new(),
+                    });
 
             let typ = sensor_data_type_from_udt(&sensor_type.udt_name).ok_or(
                 DeviceError::SensorDataUnknownType(
@@ -239,7 +241,10 @@ impl DeviceManager {
         Ok(device.name.clone())
     }
 
-    pub fn get_device_init_state(&self, id: DeviceID) -> Result<ctrl::DeviceInitState, DeviceError> {
+    pub fn get_device_init_state(
+        &self,
+        id: DeviceID,
+    ) -> Result<ctrl::DeviceInitState, DeviceError> {
         let device = self.get_device(&id)?;
         let device = device.read().unwrap();
 

@@ -13,8 +13,8 @@ use controller::*;
 use model::*;
 
 use crate::controller::Controller;
-use crate::service::Service;
 use crate::module::Module;
+use crate::service::Service;
 
 pub async fn start_server(
     host: String,

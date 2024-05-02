@@ -10,19 +10,19 @@ lazy_static! {
     static ref LOGGER: Logger = Logger::new();
 }
 
-pub fn log_kv(level: LogLevel, msg: String, kvs: Option<Vec<KV>>) {
+pub fn log_kv(level: LogLevel, msg: &str, kvs: Option<Vec<KV>>) {
     LOGGER.log(level, msg, KV::merge(KV::default_kvs(), kvs));
 }
 
-pub fn info_kv(msg: String, kvs: Option<Vec<KV>>) {
+pub fn info_kv(msg: &str, kvs: Option<Vec<KV>>) {
     LOGGER.log(LogLevel::Info, msg, KV::merge(KV::default_kvs(), kvs));
 }
 
-pub fn warn_kv(msg: String, kvs: Option<Vec<KV>>) {
+pub fn warn_kv(msg: &str, kvs: Option<Vec<KV>>) {
     LOGGER.log(LogLevel::Warn, msg, KV::merge(KV::default_kvs(), kvs));
 }
 
-pub fn error_kv(msg: String, kvs: Option<Vec<KV>>) {
+pub fn error_kv<'log>(msg: &'log str, kvs: Option<Vec<KV<'log>>>) {
     LOGGER.log(LogLevel::Error, msg, KV::merge(KV::default_kvs(), kvs));
 }
 
@@ -39,26 +39,26 @@ pub enum LogLevel {
 }
 
 #[derive(Debug, Clone)]
-enum KVType {
+enum KVType<'kv> {
     Timestamp(Duration),
-    Any(Arc<dyn std::fmt::Debug>),
+    Any(Arc<dyn std::fmt::Debug + 'kv>),
 }
 
 #[derive(Clone)]
-pub struct KV {
+pub struct KV<'kv> {
     key: String,
-    value: KVType,
+    value: KVType<'kv>,
 }
 
-impl KV {
-    pub fn new<T: std::fmt::Debug + 'static>(key: String, value: T) -> Self {
+impl<'kv> KV<'kv> {
+    pub fn new<T: std::fmt::Debug + 'kv>(key: String, value: T) -> Self {
         Self {
             key,
             value: KVType::Any(Arc::new(value)),
         }
     }
 
-    fn default_kvs() -> Vec<KV> {
+    fn default_kvs() -> Vec<KV<'kv>> {
         vec![KV {
             key: "timestamp".into(),
             value: KVType::Timestamp(
@@ -69,7 +69,7 @@ impl KV {
         }]
     }
 
-    fn merge(to: Vec<KV>, from: Option<Vec<KV>>) -> Vec<KV> {
+    fn merge(to: Vec<KV<'kv>>, from: Option<Vec<KV<'kv>>>) -> Vec<KV<'kv>> {
         match from {
             Some(kvs) => {
                 let mut v = Vec::with_capacity(to.len() + kvs.len());
@@ -89,7 +89,7 @@ impl KV {
     }
 }
 
-impl Debug for KV {
+impl<'kv> Debug for KV<'kv> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_char('"')?;
         f.write_str(&self.key)?;
@@ -100,7 +100,7 @@ impl Debug for KV {
 }
 
 pub trait LogWriter {
-    fn log(&mut self, level: &LogLevel, msg: &String, kvs: &Vec<KV>);
+    fn log<'log>(&mut self, level: &'log LogLevel, msg: &'log str, kvs: &Vec<KV<'log>>);
 }
 
 pub type LogWriterType = Arc<Mutex<dyn LogWriter + Send>>;
@@ -121,7 +121,7 @@ impl Logger {
         self.log_writers.write().unwrap().push(writer);
     }
 
-    fn log(&self, level: LogLevel, msg: String, kvs: Vec<KV>) {
+    fn log(&self, level: LogLevel, msg: &str, kvs: Vec<KV>) {
         for w in self.log_writers.read().unwrap().iter() {
             w.lock().unwrap().log(&level, &msg, &kvs);
         }
@@ -137,7 +137,7 @@ impl StdLogger {
 }
 
 impl LogWriter for StdLogger {
-    fn log(&mut self, level: &LogLevel, msg: &String, kvs: &Vec<KV>) {
+    fn log<'log>(&mut self, level: &'log LogLevel, msg: &'log str, kvs: &Vec<KV<'log>>) {
         println!("level: {:?}; msg: {}, KVs: {:?}", level, msg, kvs);
     }
 }

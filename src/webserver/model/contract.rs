@@ -396,7 +396,11 @@ impl From<controller::GetSensorDataResult> for GetSensorDataResponse {
         Self {
             result: value
                 .drain(..)
-                .map(|mut v| v.drain().map(|(field, val)| (field, val.data.into())).collect())
+                .map(|mut v| {
+                    v.drain()
+                        .map(|(field, val)| (field, val.data.into()))
+                        .collect()
+                })
                 .collect(),
         }
     }

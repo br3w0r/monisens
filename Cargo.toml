@@ -31,3 +31,5 @@ utoipa = { version = "3", features = ["actix_extras", "chrono"] }
 utoipa-swagger-ui = { version = "3", features = ["actix-web"] }
 getopts = "0.2"
 inflections = "1"
+mime = "0.3"
+serde_json = "1"

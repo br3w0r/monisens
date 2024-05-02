@@ -1,6 +1,6 @@
-use std::error::Error;
 use tokio::io::AsyncRead;
 
+use super::super::error::CommonError;
 use super::super::model;
 
 pub trait IService: Sync + Send + Clone {
@@ -12,7 +12,7 @@ pub trait IService: Sync + Send + Clone {
         &self,
         display_name: String,
         module_file: &'f mut F,
-    ) -> Result<model::DeviceInitData, Box<dyn Error>>;
+    ) -> Result<model::DeviceInitData, CommonError>;
 
     /// `device_sensor_init` initializes device's sensors by saving them in a storage.
     ///
@@ -21,27 +21,27 @@ pub trait IService: Sync + Send + Clone {
         &self,
         device_id: model::DeviceID,
         sensors: Vec<model::Sensor>,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(), CommonError>;
 
     /// `interrupt_device_init` interrupts device initialization.
     ///
     /// It must ensure that device's init state is `Device`.
     ///
     /// It must delete device's data from disk and storage.
-    async fn interrupt_device_init(&self, id: model::DeviceID) -> Result<(), Box<dyn Error>>;
+    async fn interrupt_device_init(&self, id: model::DeviceID) -> Result<(), CommonError>;
 
     /// `get_device_ids` returns all device ids.
-    fn get_device_ids(&self) -> Vec<model::DeviceID>;
+    fn get_device_ids(&self) -> Result<Vec<model::DeviceID>, CommonError>;
 
     /// `get_init_data_all_devices` returns all devices' data.
-    fn get_init_data_all_devices(&self) -> Vec<model::DeviceInitData>;
+    fn get_init_data_all_devices(&self) -> Result<Vec<model::DeviceInitData>, CommonError>;
 
     /// `save_sensor_data` saves sensor data for device.
     async fn save_sensor_data(
         &self,
         id: model::DeviceID,
         msg: model::SensorMsg,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(), CommonError>;
 
     /// `get_sensor_data` returns sensor data for device.
     async fn get_sensor_data(
@@ -50,26 +50,24 @@ pub trait IService: Sync + Send + Clone {
         sensor_name: String,
         fields: Vec<String>,
         filter: model::SensorDataFilter,
-    ) -> Result<Vec<model::SensorDataList>, Box<dyn Error>>;
+    ) -> Result<Vec<model::SensorDataList>, CommonError>;
 
     /// `get_device_info_list` returns device info list.
-    fn get_device_info_list(&self) -> Vec<model::DeviceInfo>;
+    fn get_device_info_list(&self) -> Result<Vec<model::DeviceInfo>, CommonError>;
 
     /// `get_device_sensor_info` returns device sensor info.
     fn get_device_sensor_info(
         &self,
         device_id: model::DeviceID,
-    ) -> Result<Vec<model::SensorInfo>, Box<dyn Error>>;
+    ) -> Result<Vec<model::SensorInfo>, CommonError>;
 
     /// `save_monitor_conf` saves monitoring config.
-    async fn save_monitor_conf(
-        &self,
-        monitor_conf: model::MonitorConf,
-    ) -> Result<i32, Box<dyn Error>>;
+    async fn save_monitor_conf(&self, monitor_conf: model::MonitorConf)
+        -> Result<i32, CommonError>;
 
     /// `get_monitor_conf_list` returns a list of monitoring configs.
     async fn get_monitor_conf_list(
         &self,
         filter: model::MonitorConfListFilter,
-    ) -> Result<Vec<model::MonitorConf>, Box<dyn Error>>;
+    ) -> Result<Vec<model::MonitorConf>, CommonError>;
 }

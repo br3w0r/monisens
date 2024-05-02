@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use sqlx::{
     postgres::{PgQueryResult, PgRow},
     Executor, FromRow, Postgres,
@@ -13,7 +11,9 @@ use crate::{
     table::Table,
 };
 
-pub async fn create_table<'e, E>(e: E, table: Table) -> Result<(), Box<dyn Error>>
+use super::error::RepoError;
+
+pub async fn create_table<'e, E>(e: E, table: Table) -> Result<(), RepoError>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -27,7 +27,7 @@ where
 pub async fn exec<'e, E, S: Sqlizer<Box<dyn ArgType>>>(
     e: E,
     q: S,
-) -> Result<PgQueryResult, Box<dyn Error>>
+) -> Result<PgQueryResult, RepoError>
 where
     E: Executor<'e, Database = Postgres>,
 {
@@ -37,7 +37,7 @@ where
     Ok(res)
 }
 
-pub async fn get<'e, E, S, T>(e: E, q: S) -> Result<T, Box<dyn Error>>
+pub async fn get<'e, E, S, T>(e: E, q: S) -> Result<T, RepoError>
 where
     E: Executor<'e, Database = Postgres>,
     S: Sqlizer<Box<dyn ArgType>>,
@@ -51,7 +51,7 @@ where
     Ok(res)
 }
 
-pub async fn select<'e, E, S, T>(e: E, q: S) -> Result<Vec<T>, Box<dyn Error>>
+pub async fn select<'e, E, S, T>(e: E, q: S) -> Result<Vec<T>, RepoError>
 where
     E: Executor<'e, Database = Postgres>,
     S: Sqlizer<Box<dyn ArgType>>,
@@ -70,7 +70,7 @@ where
     Ok(res)
 }
 
-pub async fn exec_raw<'e, E>(e: E, sql: &str) -> Result<PgQueryResult, Box<dyn Error>>
+pub async fn exec_raw<'e, E>(e: E, sql: &str) -> Result<PgQueryResult, RepoError>
 where
     E: Executor<'e, Database = Postgres>,
 {

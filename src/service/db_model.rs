@@ -5,12 +5,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::{types::Json, Column, FromRow, Row, TypeInfo};
 
+use crate::controller as ctrl;
 use crate::query::integration::isqlx as sq;
 use crate::{
     arg_from_ty, ref_arg_type,
     tool::query_trait::{ColumnsTrait, ValuesTrait},
 };
-use crate::controller as ctrl;
 use macros::Table;
 
 use crate::debug_from_display;
@@ -250,7 +250,11 @@ impl<'r> FromRow<'r, PgRow> for SensorDataRow {
 
 impl From<SensorDataRow> for ctrl::SensorDataList {
     fn from(mut value: SensorDataRow) -> Self {
-        value.0.drain(..).map(|v| ctrl::SensorData::from(v)).collect()
+        value
+            .0
+            .drain(..)
+            .map(|v| ctrl::SensorData::from(v))
+            .collect()
     }
 }
 

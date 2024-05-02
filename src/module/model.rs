@@ -1,6 +1,6 @@
 use super::bindings_gen as bg;
-use super::error::{ComError, ModuleError};
 use super::conv;
+use super::error::{ComError, ModuleError};
 
 use libc::c_void;
 use std::collections::HashMap;
@@ -113,7 +113,8 @@ fn build_device_conf_info(
 
     let confs =
         unsafe { std::slice::from_raw_parts((*info).device_confs, (*info).device_confs_len as _) };
-    let mut res = controller::DeviceConfInfo::with_capacity(unsafe { (*info).device_confs_len } as _);
+    let mut res =
+        controller::DeviceConfInfo::with_capacity(unsafe { (*info).device_confs_len } as _);
 
     for conf in confs {
         let data = build_device_conf_info_entry_data(conf)?;
@@ -140,24 +141,28 @@ fn build_device_conf_info_entry_data(
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeString => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryString) };
 
-            Ok(controller::DeviceConfInfoEntryType::String(controller::DeviceConfInfoEntryString {
-                required: data.required,
-                default: conv::option_str_from_c_char(data.def),
-                min_len: nullable_into_option(data.min_len),
-                max_len: nullable_into_option(data.max_len),
-                match_regex: conv::option_str_from_c_char(data.match_regex),
-            }))
+            Ok(controller::DeviceConfInfoEntryType::String(
+                controller::DeviceConfInfoEntryString {
+                    required: data.required,
+                    default: conv::option_str_from_c_char(data.def),
+                    min_len: nullable_into_option(data.min_len),
+                    max_len: nullable_into_option(data.max_len),
+                    match_regex: conv::option_str_from_c_char(data.match_regex),
+                },
+            ))
         }
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeInt => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryInt) };
 
-            Ok(controller::DeviceConfInfoEntryType::Int(controller::DeviceConfInfoEntryInt {
-                required: data.required,
-                default: nullable_into_option(data.def),
-                lt: nullable_into_option(data.lt),
-                gt: nullable_into_option(data.gt),
-                neq: nullable_into_option(data.neq),
-            }))
+            Ok(controller::DeviceConfInfoEntryType::Int(
+                controller::DeviceConfInfoEntryInt {
+                    required: data.required,
+                    default: nullable_into_option(data.def),
+                    lt: nullable_into_option(data.lt),
+                    gt: nullable_into_option(data.gt),
+                    neq: nullable_into_option(data.neq),
+                },
+            ))
         }
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeIntRange => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryIntRange) };
@@ -175,13 +180,15 @@ fn build_device_conf_info_entry_data(
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeFloat => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryFloat) };
 
-            Ok(controller::DeviceConfInfoEntryType::Float(controller::DeviceConfInfoEntryFloat {
-                required: data.required,
-                default: nullable_into_option(data.def),
-                lt: nullable_into_option(data.lt),
-                gt: nullable_into_option(data.gt),
-                neq: nullable_into_option(data.neq),
-            }))
+            Ok(controller::DeviceConfInfoEntryType::Float(
+                controller::DeviceConfInfoEntryFloat {
+                    required: data.required,
+                    default: nullable_into_option(data.def),
+                    lt: nullable_into_option(data.lt),
+                    gt: nullable_into_option(data.gt),
+                    neq: nullable_into_option(data.neq),
+                },
+            ))
         }
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeFloatRange => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryFloatRange) };
@@ -199,10 +206,12 @@ fn build_device_conf_info_entry_data(
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeJSON => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryJSON) };
 
-            Ok(controller::DeviceConfInfoEntryType::JSON(controller::DeviceConfInfoEntryJSON {
-                required: data.required,
-                default: conv::option_str_from_c_char(data.def),
-            }))
+            Ok(controller::DeviceConfInfoEntryType::JSON(
+                controller::DeviceConfInfoEntryJSON {
+                    required: data.required,
+                    default: conv::option_str_from_c_char(data.def),
+                },
+            ))
         }
         bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeChoiceList => {
             let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryChoiceList) };
@@ -268,10 +277,13 @@ pub fn bg_sensor_type_infos_to_sensor_vec(
         let mut res_data_type_infos_map = HashMap::with_capacity(data_type_infos_slice.len());
         for data_type_info in data_type_infos_slice {
             let name = conv::str_from_c_char(data_type_info.name);
-            res_data_type_infos_map.insert(name.clone(), controller::SensorDataEntry {
-                name,
-                typ: conv::bg_sensor_data_type_to_ctrl(&data_type_info.typ),
-            });
+            res_data_type_infos_map.insert(
+                name.clone(),
+                controller::SensorDataEntry {
+                    name,
+                    typ: conv::bg_sensor_data_type_to_ctrl(&data_type_info.typ),
+                },
+            );
         }
 
         res_infos.push(controller::Sensor {
@@ -322,7 +334,7 @@ pub extern "C" fn handle_msg_callback(handler: *mut c_void, msg_data: bg::Messag
 
 // ------------------- Utility functions -------------------
 
-pub fn  convert_com_error(err: u8) -> Result<(), ComError> {
+pub fn convert_com_error(err: u8) -> Result<(), ComError> {
     match err {
         0 => Ok(()),
         1 => Err(ComError::ConnectionError),

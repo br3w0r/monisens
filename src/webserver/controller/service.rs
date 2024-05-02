@@ -1,8 +1,10 @@
 use actix_multipart::form::MultipartForm;
-use actix_web::{post, web, HttpResponse, Responder, Result};
+use actix_web::{post, web, HttpResponse, Responder};
 use actix_web_validator::Json;
 
 use crate::webserver::model::{contract, ServiceState};
+
+use super::error::WebError;
 
 #[utoipa::path(
     context_path = "/service",
@@ -16,8 +18,10 @@ use crate::webserver::model::{contract, ServiceState};
 pub async fn start_device_init(
     data: web::Data<ServiceState>,
     MultipartForm(form): MultipartForm<contract::DeviceStartInitRequest>,
-) -> Result<impl Responder> {
-    let mut file = tokio::fs::File::open(form.module_file.file.path()).await?;
+) -> Result<impl Responder, WebError> {
+    let mut file = tokio::fs::File::open(form.module_file.file.path())
+        .await
+        .map_err(|err| Box::<dyn std::error::Error>::from(err))?;
 
     let res = data
         .ctrl
@@ -39,7 +43,7 @@ pub async fn start_device_init(
 pub async fn connect_device(
     data: web::Data<ServiceState>,
     mut req: web::Json<contract::ConnectDeviceRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     data.ctrl.connect_device(
         req.device_id,
         req.connect_conf.drain(..).map(|v| v.into()).collect(),
@@ -60,7 +64,7 @@ pub async fn connect_device(
 pub async fn obtain_device_conf_info(
     data: web::Data<ServiceState>,
     req: web::Json<contract::ObtainDeviceConfInfoRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     let mut res = data.ctrl.obtain_device_conf_info(req.device_id)?;
 
     Ok(web::Json(contract::ObtainDeviceConfInfoResponse {
@@ -80,7 +84,7 @@ pub async fn obtain_device_conf_info(
 pub async fn configure_device(
     data: web::Data<ServiceState>,
     mut req: web::Json<contract::ConfigureDeviceRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     data.ctrl
         .configure_device(
             req.device_id,
@@ -103,7 +107,7 @@ pub async fn configure_device(
 pub async fn interrupt_device_init(
     data: web::Data<ServiceState>,
     req: web::Json<contract::InterruptDeviceInitRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     data.ctrl.interrupt_device_init(req.device_id).await?;
 
     Ok(HttpResponse::Ok())
@@ -121,7 +125,7 @@ pub async fn interrupt_device_init(
 pub async fn get_sensor_data(
     data: web::Data<ServiceState>,
     req: Json<contract::GetSensorDataRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     let res = data.ctrl.get_sensor_data(req.0.clone().into()).await?;
 
     Ok(web::Json::<contract::GetSensorDataResponse>(res.into()))
@@ -135,8 +139,8 @@ pub async fn get_sensor_data(
     ),
 )]
 #[post("/get-device-list")]
-pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Responder> {
-    let mut res = data.ctrl.get_device_info_list();
+pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Responder, WebError> {
+    let mut res = data.ctrl.get_device_info_list()?;
 
     res.sort_unstable_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
 
@@ -155,7 +159,7 @@ pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Respo
 pub async fn get_device_sensor_info(
     data: web::Data<ServiceState>,
     req: Json<contract::GetDeviceSensorInfoRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     let res = data.ctrl.get_device_sensor_info(req.device_id)?;
 
     Ok(web::Json::<contract::GetDeviceSensorInfoResponse>(
@@ -175,7 +179,7 @@ pub async fn get_device_sensor_info(
 pub async fn save_monitor_conf(
     data: web::Data<ServiceState>,
     req: Json<contract::SaveMonitorConfRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     let id = data.ctrl.save_monitor_conf(req.0.into()).await?;
 
     Ok(web::Json(contract::SaveMonitorConfResponse { id }))
@@ -193,7 +197,7 @@ pub async fn save_monitor_conf(
 pub async fn get_monitor_conf_list(
     data: web::Data<ServiceState>,
     req: Json<contract::MonitorConfListRequest>,
-) -> Result<impl Responder> {
+) -> Result<impl Responder, WebError> {
     let res = data.ctrl.get_monitor_conf_list(req.0.filter.into()).await?;
 
     Ok(web::Json::<contract::MonitorConfListResponse>(res.into()))

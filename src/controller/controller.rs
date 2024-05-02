@@ -7,7 +7,10 @@ use std::{
 use tokio::{io::AsyncRead, runtime::Handle};
 
 use super::error::*;
-use super::interface::{service::IService, module::{IModule, IModuleFactory}};
+use super::interface::{
+    module::{IModule, IModuleFactory},
+    service::IService,
+};
 use super::model::internal::*;
 use super::model::*;
 use super::msg;
@@ -20,17 +23,12 @@ pub struct Controller<S: IService, M: IModule, MF: IModuleFactory<M>> {
 }
 
 impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Controller<S, M, MF> {
-    pub async fn new(tokio_handle: Handle, svc: S) -> Result<Self, Box<dyn Error>> {
-        let device_init_datas = svc.get_init_data_all_devices();
+    pub async fn new(tokio_handle: Handle, svc: S) -> Result<Self, ControllerError> {
+        let device_init_datas = svc.get_init_data_all_devices()?;
         let mut mods = HashMap::with_capacity(device_init_datas.len());
 
         for data in device_init_datas {
-            let m = MF::create_module(&data.module_file, &data.full_data_dir).map_err(|err| {
-                format!(
-                    "failed to init module; file: {}; err: {err}",
-                    data.module_file.to_str().unwrap_or("[invalid file path]")
-                )
-            })?;
+            let m = MF::create_module(&data.module_file, &data.full_data_dir)?;
             let device = Arc::new(Mutex::new(Device {
                 id: data.id,
                 module: m,
@@ -41,10 +39,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
                 let mut device = device.lock().unwrap();
                 let msg_handler = msg::Handler::new(data.id, svc.clone(), tokio_handle.clone());
 
-                device
-                    .module
-                    .start(msg_handler.clone())
-                    .map_err(|err| format!("failed to start device: {err}"))?;
+                device.module.start(msg_handler.clone())?;
 
                 device.msg_handler = Some(msg_handler);
             }
@@ -64,7 +59,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         &self,
         name: String,
         module_file: &'f mut F,
-    ) -> Result<DeviceConnData, Box<dyn Error>> {
+    ) -> Result<DeviceConnData, ControllerError> {
         let device_init_data = self.svc.start_device_init(name, module_file).await?;
 
         let res = {
@@ -97,18 +92,18 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         res
     }
 
-    pub fn connect_device(&self, id: i32, conf: DeviceConnectConf) -> Result<(), Box<dyn Error>> {
+    pub fn connect_device(&self, id: i32, conf: DeviceConnectConf) -> Result<(), ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
-        let mut conn_conf = conf.into();
+        let conn_conf = conf.into();
 
         device.module.connect_device(conn_conf)?;
 
         Ok(())
     }
 
-    pub fn obtain_device_conf_info(&self, id: i32) -> Result<DeviceConfInfo, Box<dyn Error>> {
+    pub fn obtain_device_conf_info(&self, id: i32) -> Result<DeviceConfInfo, ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
@@ -121,7 +116,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         &self,
         id: i32,
         confs: Vec<DeviceConfEntry>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), ControllerError> {
         {
             let device_lock = self.get_device(&id)?;
             let mut device = device_lock.lock().unwrap();
@@ -139,7 +134,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         Ok(())
     }
 
-    pub async fn interrupt_device_init(&self, id: i32) -> Result<(), Box<dyn Error>> {
+    pub async fn interrupt_device_init(&self, id: i32) -> Result<(), ControllerError> {
         let device_lock = self.get_device(&id)?;
         let device = device_lock.lock().unwrap();
 
@@ -150,7 +145,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         Ok(())
     }
 
-    fn start_device(&self, id: i32) -> Result<(), Box<dyn Error>> {
+    fn start_device(&self, id: i32) -> Result<(), ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
@@ -170,7 +165,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         Ok(())
     }
 
-    fn stop_device(&self, id: i32) -> Result<(), Box<dyn Error>> {
+    fn stop_device(&self, id: i32) -> Result<(), ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
@@ -182,7 +177,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
     pub async fn get_sensor_data(
         &self,
         data: GetSensorDataPayload,
-    ) -> Result<GetSensorDataResult, Box<dyn Error>> {
+    ) -> Result<GetSensorDataResult, ControllerError> {
         if data.fields.len() == 0 {
             return Err(ControllerError::IncorrectPayload("data.fields is empty".into()).into());
         }
@@ -202,31 +197,39 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         Ok(sensor_data_result_from_service(res))
     }
 
-    pub fn get_device_info_list(&self) -> Vec<DeviceInfo> {
-        self.svc.get_device_info_list()
+    pub fn get_device_info_list(&self) -> Result<Vec<DeviceInfo>, ControllerError> {
+        self.svc.get_device_info_list().map_err(|err| err.into())
     }
 
     pub fn get_device_sensor_info(
         &self,
         device_id: i32,
-    ) -> Result<Vec<SensorInfo>, Box<dyn Error>> {
+    ) -> Result<Vec<SensorInfo>, ControllerError> {
         let device_id = self.get_device_id(&device_id)?;
 
-        self.svc.get_device_sensor_info(device_id)
+        self.svc
+            .get_device_sensor_info(device_id)
+            .map_err(|err| err.into())
     }
 
     pub async fn save_monitor_conf(
         &self,
         monitor_conf: MonitorConf,
-    ) -> Result<i32, Box<dyn Error>> {
-        self.svc.save_monitor_conf(monitor_conf).await
+    ) -> Result<i32, ControllerError> {
+        self.svc
+            .save_monitor_conf(monitor_conf)
+            .await
+            .map_err(|err| err.into())
     }
 
     pub async fn get_monitor_conf_list(
         &self,
         filter: MonitorConfListFilter,
-    ) -> Result<Vec<MonitorConf>, Box<dyn Error>> {
-        self.svc.get_monitor_conf_list(filter).await
+    ) -> Result<Vec<MonitorConf>, ControllerError> {
+        self.svc
+            .get_monitor_conf_list(filter)
+            .await
+            .map_err(|err| err.into())
     }
 
     fn get_device(&self, id: &i32) -> Result<Arc<Mutex<Device<S, M>>>, ControllerError> {

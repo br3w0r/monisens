@@ -7,5 +7,5 @@ pub mod error;
 pub mod interface;
 
 pub use conf::*;
-pub use model::*;
 pub use controller::*;
+pub use model::*;

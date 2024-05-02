@@ -1,3 +1,4 @@
+use core::fmt;
 use std::env;
 use std::error::Error;
 use std::io::Write;
@@ -22,9 +23,10 @@ const APP_DATA_DIR: &str = "app_data";
 const APP_DATA_ENV_KEY: &str = "MONISENS_APP_DATA";
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), ()> {
     // Process command line arguments
-    let args_res = process_args()?;
+    let args_res = process_args()
+        .map_err(|err| log_fatal_err("failed to process command line arguments", err))?;
     let args = match args_res {
         ArgsResult::Help(opts) => {
             let brief = "Usage: monisens [options]";
@@ -45,21 +47,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let repo = repo::Repository::new(conf.get_repo_dsn())
         .await
-        .map_err(|err| format!("failed to init repo: {err}"))?;
+        .map_err(|err| log_fatal_err("failed to init repo", err))?;
     let svc = service::Service::new(repo)
         .await
-        .map_err(|err| format!("failed to init service: {err}"))?;
+        .map_err(|err| log_fatal_err("failed to init service", err))?;
 
-    let ctrl: controller::Controller<service::Service, module::Module, module::Module> = controller::Controller::new(Handle::current(), svc)
-        .await
-        .map_err(|err| format!("failed to init controller: {err}"))?;
+    let ctrl: controller::Controller<service::Service, module::Module, module::Module> =
+        controller::Controller::new(Handle::current(), svc)
+            .await
+            .map_err(|err| log_fatal_err("failed to init controller", err))?;
 
     println!("Starting web server...");
     std::io::stdout().flush().unwrap();
 
-    let app_config = init_app_config()?;
+    let app_config =
+        init_app_config().map_err(|err| log_fatal_err("failed to init app config", err))?;
 
-    webserver::start_server(args.host, ctrl, app_config).await?;
+    webserver::start_server(args.host, ctrl, app_config)
+        .await
+        .map_err(|err| log_fatal_err("failed to start web server", err))?;
 
     Ok(())
 }
@@ -130,28 +136,7 @@ fn get_exec_dir() -> std::io::Result<std::path::PathBuf> {
     Ok(exec_dir)
 }
 
-// fn error_parser<T: Any>(err: T) -> Option<String> {
-//     let of_any = &err as &dyn Any;
-//     if let Some(sqlx_err) = of_any.downcast_ref::<Error>() {
-//         match sqlx_err {
-//             Error::Database(db_err) => {
-//                 let code: String = match db_err.code() {
-//                     Some(c) => c.into_owned(),
-//                     _ => String::from("unknown"),
-//                 };
-
-//                 Some(format!(
-//                     "db error occured: code: '{}'; message: {}",
-//                     code,
-//                     db_err.message()
-//                 ))
-//             }
-
-//             Error::RowNotFound => Some(format!("entry was not found")),
-
-//             _ => None,
-//         }
-//     } else {
-//         None
-//     }
-// }
+fn log_fatal_err<E: fmt::Debug + fmt::Display>(msg: &str, err: E) {
+    logger::error_kv(msg, Some(vec![logger::KV::new("error".into(), &err)]));
+    println!("============ Fatal error ============\n{}", err);
+}

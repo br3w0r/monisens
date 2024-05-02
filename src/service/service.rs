@@ -6,9 +6,13 @@ use inflections::Inflect;
 
 use super::db_model;
 use super::device;
-use super::error::ServiceError;
+use super::error::ServiceError as InternalServiceError;
 
-use crate::controller::{self as ctrl, interface::service::IService};
+use crate::controller::{
+    self as ctrl,
+    error::{CommonError, ErrorType},
+    interface::service::IService,
+};
 use crate::query::integration::isqlx as sq;
 use crate::query::integration::isqlx::ArgType;
 use crate::tool::query_trait::{ColumnsTrait, ValuesTrait};
@@ -82,12 +86,13 @@ impl IService for Service {
         &self,
         display_name: String,
         module_file: &'f mut F,
-    ) -> Result<ctrl::DeviceInitData, Box<dyn std::error::Error>> {
+    ) -> Result<ctrl::DeviceInitData, CommonError> {
         if let Err(err) = validation::validate_multiple_words(&display_name) {
-            return Err(Box::new(ServiceError::NameValidationErr(
-                "device name".into(),
-                err,
-            )));
+            return Err(CommonError::new(
+                ErrorType::InvalidInput,
+                "failed to validate display_name",
+            )
+            .with_source(err));
         }
 
         let name = display_name.to_snake_case();
@@ -95,23 +100,43 @@ impl IService for Service {
         let res = self
             .device_manager
             .start_device_init(name.clone(), display_name.clone(), module_file)
-            .await?;
+            .await
+            .map_err(|err| {
+                CommonError::new(ErrorType::Internal, "failed to start device init")
+                    .with_source(err)
+            })?;
 
         let mut b = sq::StatementBuilder::new();
         b.table(db_model::Device::table_name())
             .columns(db_model::Device::columns());
 
+        let module_dir = path_to_str(&res.module_dir).map_err(|err| {
+            CommonError::new(
+                ErrorType::Internal,
+                "failed to convert module path to string",
+            )
+            .with_source(err)
+        })?;
+
+        let data_dir = path_to_str(&res.data_dir.clone()).map_err(|err| {
+            CommonError::new(ErrorType::Internal, "failed to convert data path to string")
+                .with_source(err)
+        })?;
+
         db_model::Device {
             id: res.id.get_raw(),
             name,
             display_name,
-            module_dir: path_to_str(&res.module_dir)?,
-            data_dir: path_to_str(&res.data_dir.clone())?,
+            module_dir,
+            data_dir,
             init_state: db_model::DeviceInitState::Device,
         }
         .values(&mut b);
 
-        self.repo.exec(b.insert()).await?;
+        self.repo
+            .exec(b.insert())
+            .await
+            .map_err(|err| err.to_common_err("failed to save device info"))?;
 
         Ok(res)
     }
@@ -120,7 +145,7 @@ impl IService for Service {
         &self,
         device_id: ctrl::DeviceID,
         sensors: Vec<ctrl::Sensor>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), CommonError> {
         // Data validation and table creation
         let mut tables = Vec::with_capacity(sensors.len());
         let mut device_sensor_query = sq::StatementBuilder::new();
@@ -130,20 +155,25 @@ impl IService for Service {
 
         for (i, sensor) in sensors.iter().enumerate() {
             if let Err(err) = base_validate_name(&sensor.name) {
-                return Err(Box::new(ServiceError::NameValidationErr(
-                    format!("sensor[{}].name", i),
-                    err,
-                )));
+                return Err(CommonError::new(
+                    ErrorType::Internal,
+                    format!("invalid sensor name for sensor[{}]", i),
+                )
+                .with_source(err));
             }
 
             if sensor.data_map.len() == 0 {
-                return Err(Box::new(ServiceError::DeviceSensorInitErr(
-                    "a sensor must specify at least one data type".into(),
-                )));
+                return Err(CommonError::new(
+                    ErrorType::Internal,
+                    "a sensor must specify at least one data type",
+                ));
             }
 
             let table_name = sensor_table_name(device_id.get_raw(), &sensor.name);
-            let mut table = table::Table::new(table_name.clone())?;
+            let mut table = table::Table::new(table_name.clone()).map_err(|err| {
+                CommonError::new(ErrorType::Internal, "failed to create table structure")
+                    .with_source(err)
+            })?;
 
             db_model::DeviceSensor {
                 device_id: device_id.get_raw(),
@@ -155,23 +185,40 @@ impl IService for Service {
             for (key, data) in sensor.data_map.iter() {
                 // Validate sensor's data type name
                 if key != &data.name {
-                    return Err(Box::new(ServiceError::DeviceSensorInitErr(
-                        "sensor's data map key is not equal to it's value.name".into(),
-                    )));
+                    return Err(CommonError::new(
+                        ErrorType::Internal,
+                        "sensor's data map key is not equal to it's value.name",
+                    ));
                 }
                 if let Err(err) = base_validate_name(&data.name) {
-                    return Err(Box::new(ServiceError::NameValidationErr(
-                        format!("sensor[{}].data_map['{}'].name", i, &data.name),
-                        err,
-                    )));
+                    return Err(CommonError::new(
+                        ErrorType::Internal,
+                        format!(
+                            "invalid data name for sensor[{}] and data name '{}'",
+                            i, &data.name
+                        ),
+                    )
+                    .with_source(err));
                 }
 
                 // Add data type column to the table
                 let mut data_type_field =
-                    table::Field::new(data.name.clone(), data_type_to_table_type(&data.typ))?;
-                data_type_field.add_opt(table::FieldOption::NotNull)?;
+                    table::Field::new(data.name.clone(), data_type_to_table_type(&data.typ))
+                        .map_err(|err| {
+                            CommonError::new(ErrorType::Internal, "failed to create field")
+                                .with_source(err)
+                        })?;
+                data_type_field
+                    .add_opt(table::FieldOption::NotNull)
+                    .map_err(|err| {
+                        CommonError::new(ErrorType::Internal, "failed to add field option to field")
+                            .with_source(err)
+                    })?;
 
-                table.add_field(data_type_field)?;
+                table.add_field(data_type_field).map_err(|err| {
+                    CommonError::new(ErrorType::Internal, "failed to add field to table")
+                        .with_source(err)
+                })?;
             }
 
             tables.push(table);
@@ -179,13 +226,26 @@ impl IService for Service {
 
         // Create tables in TX
         // TODO: Retries?
-        let mut tx = self.repo.tx().await?;
+        let mut tx = self
+            .repo
+            .tx()
+            .await
+            .map_err(|err| err.to_common_err("failed to start transaction"))?;
         for table in tables {
-            tx.create_table(table).await?;
+            tx.create_table(table).await.map_err(|err| {
+                CommonError::new(ErrorType::Internal, "failed to create table in DB")
+                    .with_source(err)
+            })?;
         }
 
         // Bind tables to device
-        tx.exec(device_sensor_query.insert()).await?;
+        tx.exec(device_sensor_query.insert()).await.map_err(|err| {
+            CommonError::new(
+                ErrorType::Internal,
+                "failed to bind sensors to device in DB",
+            )
+            .with_source(err)
+        })?;
 
         // Update device's init_state
         let mut b = sq::StatementBuilder::new();
@@ -196,26 +256,48 @@ impl IService for Service {
             )
             .whereq(sq::eq("id".into(), device_id.get_raw()));
 
-        tx.exec(b.update()).await?;
+        tx.exec(b.update()).await.map_err(|err| {
+            CommonError::new(ErrorType::Internal, "failed to update device's init state")
+                .with_source(err)
+        })?;
 
         self.device_manager
-            .device_sensor_init(&device_id, sensors)?;
+            .device_sensor_init(&device_id, sensors)
+            .map_err(|err| {
+                CommonError::new(
+                    ErrorType::Internal,
+                    "failed to init device's sensors in device manager",
+                )
+                .with_source(err)
+            })?;
 
-        tx.commit().await?;
+        tx.commit().await.map_err(|err| {
+            CommonError::new(ErrorType::Internal, "failed to commit transaction").with_source(err)
+        })?;
 
         Ok(())
     }
 
-    async fn interrupt_device_init(
-        &self,
-        id: ctrl::DeviceID,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut tx = self.repo.tx().await?;
+    async fn interrupt_device_init(&self, id: ctrl::DeviceID) -> Result<(), CommonError> {
+        let mut tx = self
+            .repo
+            .tx()
+            .await
+            .map_err(|err| err.to_common_err("failed to start transaction"))?;
 
         // Check whether device's state is 'DEVICE'
-        let init_state = self.device_manager.get_device_init_state(id)?;
+        let init_state = self
+            .device_manager
+            .get_device_init_state(id)
+            .map_err(|err| {
+                CommonError::new(ErrorType::Internal, "failed to get device's init state")
+                    .with_source(err)
+            })?;
         if init_state != ctrl::DeviceInitState::Device {
-            return Err(Box::new(ServiceError::DeviceAlreadyInitialized(id)));
+            return Err(CommonError::new(
+                ErrorType::FailedPrecondition,
+                "device's init state is not 'Device'",
+            ));
         }
 
         // Delete device's info
@@ -223,27 +305,41 @@ impl IService for Service {
         b.table(db_model::Device::table_name())
             .whereq(sq::eq("id".into(), id.get_raw()));
 
-        tx.exec(b.delete()).await?;
+        tx.exec(b.delete()).await.map_err(|err| {
+            CommonError::new(ErrorType::Internal, "failed to delete device info from DB")
+                .with_source(err)
+        })?;
 
-        self.device_manager.delete_device(&id).await?;
-        tx.commit().await?;
+        self.device_manager
+            .delete_device(&id)
+            .await
+            .map_err(|err| {
+                CommonError::new(
+                    ErrorType::Internal,
+                    "failed to delete device from device manager",
+                )
+                .with_source(err)
+            })?;
+        tx.commit().await.map_err(|err| {
+            CommonError::new(ErrorType::Internal, "failed to commit transaction").with_source(err)
+        })?;
 
         Ok(())
     }
 
-    fn get_device_ids(&self) -> Vec<ctrl::DeviceID> {
-        self.device_manager.get_device_ids()
+    fn get_device_ids(&self) -> Result<Vec<ctrl::DeviceID>, CommonError> {
+        Ok(self.device_manager.get_device_ids())
     }
 
-    fn get_init_data_all_devices(&self) -> Vec<ctrl::DeviceInitData> {
-        self.device_manager.get_init_data_all_devices()
+    fn get_init_data_all_devices(&self) -> Result<Vec<ctrl::DeviceInitData>, CommonError> {
+        Ok(self.device_manager.get_init_data_all_devices())
     }
 
     async fn save_sensor_data(
         &self,
         id: ctrl::DeviceID,
         msg: ctrl::SensorMsg,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), CommonError> {
         // TODO: data validation?
         let table_name = quote_string(&sensor_table_name(id.get_raw(), &msg.name));
         let mut b = sq::StatementBuilder::new();
@@ -258,7 +354,10 @@ impl IService for Service {
 
         b.table(table_name).columns(&cols).values(vals);
 
-        self.repo.exec(b.insert()).await?;
+        self.repo
+            .exec(b.insert())
+            .await
+            .map_err(|err| err.to_common_err("failed to save sensor data"))?;
 
         Ok(())
     }
@@ -269,7 +368,7 @@ impl IService for Service {
         sensor_name: String,
         fields: Vec<String>,
         filter: ctrl::SensorDataFilter,
-    ) -> Result<Vec<ctrl::SensorDataList>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<ctrl::SensorDataList>, CommonError> {
         let filter = db_model::SensorDataFilter::from(filter);
 
         let table_name = quote_string(&sensor_table_name(id.get_raw(), &sensor_name));
@@ -279,7 +378,11 @@ impl IService for Service {
         b.table(table_name).columns(&fields);
         filter.apply(&mut b);
 
-        let mut res: Vec<db_model::SensorDataRow> = self.repo.select(b.select()).await?;
+        let mut res: Vec<db_model::SensorDataRow> = self
+            .repo
+            .select(b.select())
+            .await
+            .map_err(|err| err.to_common_err("failed to get sensor data"))?;
 
         Ok(res
             .drain(..)
@@ -287,23 +390,26 @@ impl IService for Service {
             .collect())
     }
 
-    fn get_device_info_list(&self) -> Vec<ctrl::DeviceInfo> {
-        self.device_manager.get_device_info_list()
+    fn get_device_info_list(&self) -> Result<Vec<ctrl::DeviceInfo>, CommonError> {
+        Ok(self.device_manager.get_device_info_list())
     }
 
     fn get_device_sensor_info(
         &self,
         device_id: ctrl::DeviceID,
-    ) -> Result<Vec<ctrl::SensorInfo>, Box<dyn std::error::Error>> {
-        let res = self.device_manager.get_device_sensor_info(device_id)?;
+    ) -> Result<Vec<ctrl::SensorInfo>, CommonError> {
+        let res = self
+            .device_manager
+            .get_device_sensor_info(device_id)
+            .map_err(|err| {
+                CommonError::new(ErrorType::Internal, "failed to get device sensor info")
+                    .with_source(err)
+            })?;
 
         Ok(res)
     }
 
-    async fn save_monitor_conf(
-        &self,
-        monitor_conf: ctrl::MonitorConf,
-    ) -> Result<i32, Box<dyn std::error::Error>> {
+    async fn save_monitor_conf(&self, monitor_conf: ctrl::MonitorConf) -> Result<i32, CommonError> {
         let monitor_conf = db_model::MonitorConf::from(monitor_conf);
 
         let mut b = sq::StatementBuilder::new();
@@ -313,7 +419,11 @@ impl IService for Service {
         monitor_conf.values(&mut b);
         b.suffix("RETURNING id");
 
-        let id: (i32,) = self.repo.get(b.insert()).await?;
+        let id: (i32,) = self
+            .repo
+            .get(b.insert())
+            .await
+            .map_err(|err| err.to_common_err("failed to save monitor conf"))?;
 
         Ok(id.0)
     }
@@ -321,7 +431,7 @@ impl IService for Service {
     async fn get_monitor_conf_list(
         &self,
         filter: ctrl::MonitorConfListFilter,
-    ) -> Result<Vec<ctrl::MonitorConf>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<ctrl::MonitorConf>, CommonError> {
         let filter = db_model::MonitorConfListFilter::from(filter);
 
         let mut b = sq::StatementBuilder::new();
@@ -331,14 +441,21 @@ impl IService for Service {
 
         filter.apply(&mut b);
 
-        let mut res: Vec<db_model::MonitorConf> = self.repo.select(b.select()).await?;
+        let mut res: Vec<db_model::MonitorConf> = self
+            .repo
+            .select(b.select())
+            .await
+            .map_err(|err| err.to_common_err("failed to get monitor conf list"))?;
 
         Ok(res.drain(..).map(|v| ctrl::MonitorConf::from(v)).collect())
     }
 }
 
-fn path_to_str<P: AsRef<Path>>(path: P) -> Result<String, ServiceError> {
-    let p = path.as_ref().to_str().ok_or(ServiceError::InvalidPath)?;
+fn path_to_str<P: AsRef<Path>>(path: P) -> Result<String, InternalServiceError> {
+    let p = path
+        .as_ref()
+        .to_str()
+        .ok_or(InternalServiceError::InvalidPath)?;
 
     Ok(p.to_string())
 }

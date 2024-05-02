@@ -1,4 +1,3 @@
-use std::fmt;
 use thiserror::Error;
 
 use super::{FieldOption, FieldType};

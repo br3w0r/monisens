@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::controller::error::{CommonError, ErrorType};
+
 use crate::debug_from_display;
 
 #[derive(Error)]
@@ -17,6 +19,21 @@ pub enum ModuleError {
     InvalidDataPath,
 }
 
+impl ModuleError {
+    pub fn to_ctrl_type(&self) -> ErrorType {
+        match self {
+            ModuleError::InvalidVersion(_, _) => ErrorType::InvalidInput,
+            ModuleError::InvalidPointer(_) => ErrorType::Internal,
+            ModuleError::StrError(_) => ErrorType::Internal,
+            ModuleError::InvalidDataPath => ErrorType::Internal,
+        }
+    }
+
+    pub fn to_ctrl_error<S: Into<String>>(self, msg: S) -> CommonError {
+        CommonError::new(self.to_ctrl_type(), msg.into()).with_source(self)
+    }
+}
+
 debug_from_display!(ModuleError);
 
 // ComError describes recoverable errors that
@@ -30,6 +47,20 @@ pub enum ComError {
     ConnectionError,
     #[error("InvalidArgument: some of parameters are wrong")]
     InvalidArgument,
+}
+
+impl ComError {
+    pub fn to_ctrl_type(&self) -> ErrorType {
+        match self {
+            ComError::Unknown => ErrorType::Unknown,
+            ComError::ConnectionError => ErrorType::IO,
+            ComError::InvalidArgument => ErrorType::InvalidInput,
+        }
+    }
+
+    pub fn to_ctrl_error<S: Into<String>>(self, msg: S) -> CommonError {
+        CommonError::new(self.to_ctrl_type(), msg.into()).with_source(self)
+    }
 }
 
 debug_from_display!(ComError);

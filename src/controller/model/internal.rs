@@ -1,4 +1,4 @@
-use super::super::interface::{service::IService, module::IModule};
+use super::super::interface::{module::IModule, service::IService};
 use super::super::msg;
 
 // TODO: issue #81
