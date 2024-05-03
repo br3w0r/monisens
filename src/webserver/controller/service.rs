@@ -1,17 +1,17 @@
 use actix_multipart::form::MultipartForm;
-use actix_web::{post, web, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpResponse, Responder};
 use actix_web_validator::Json;
 
 use crate::webserver::model::{contract, ServiceState};
 
-use super::error::WebError;
+use super::super::model::error::WebError;
 
 #[utoipa::path(
     context_path = "/service",
     request_body(content = DeviceStartInitRequest, content_type = "multipart/form-data"),
     responses(
         (status = 200, description = "Ok response with device id and connection params", body = DeviceStartInitResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/start-device-init")]
@@ -36,7 +36,7 @@ pub async fn start_device_init(
     request_body(content = ConnectDeviceRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response"),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/connect-device")]
@@ -57,7 +57,7 @@ pub async fn connect_device(
     request_body(content = ObtainDeviceConfInfoRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response with device conf info", body = ObtainDeviceConfInfoResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/obtain-device-conf-info")]
@@ -77,7 +77,7 @@ pub async fn obtain_device_conf_info(
     request_body(content = ConfigureDeviceRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response"),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/configure-device")]
@@ -100,7 +100,7 @@ pub async fn configure_device(
     request_body(content = InterruptDeviceInitRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response"),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/interrupt-device-init")]
@@ -118,7 +118,7 @@ pub async fn interrupt_device_init(
     request_body(content = GetSensorDataRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response", body = GetSensorDataResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/get-sensor-data")]
@@ -135,10 +135,10 @@ pub async fn get_sensor_data(
     context_path = "/service",
     responses(
         (status = 200, description = "Ok response", body = GetDeviceListResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
-#[post("/get-device-list")]
+#[get("/get-device-list")]
 pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Responder, WebError> {
     let mut res = data.ctrl.get_device_info_list()?;
 
@@ -152,7 +152,7 @@ pub async fn get_device_list(data: web::Data<ServiceState>) -> Result<impl Respo
     request_body(content = GetDeviceSensorInfoRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response with device conf info", body = GetDeviceSensorInfoResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/get-device-sensor-info")]
@@ -172,7 +172,7 @@ pub async fn get_device_sensor_info(
     request_body(content = SaveMonitorConfRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response", body = SaveMonitorConfResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/save-monitor-conf")]
@@ -190,7 +190,7 @@ pub async fn save_monitor_conf(
     request_body(content = MonitorConfListRequest, content_type = "application/json"),
     responses(
         (status = 200, description = "Ok response", body = MonitorConfListResponse),
-        (status = 500, description = "Server error response"),
+        (status = 500, description = "Server error response", body = WebError),
     ),
 )]
 #[post("/get-monitor-conf-list")]

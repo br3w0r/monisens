@@ -1,4 +1,5 @@
 pub mod config;
+
 mod controller;
 mod model;
 
@@ -36,6 +37,7 @@ pub async fn start_server(
             service::get_monitor_conf_list,
         ),
         components(schemas(
+            error::WebError,
             contract::TestUploadForm,
             contract::DeviceStartInitRequest,
             contract::DeviceStartInitResponse,
@@ -91,7 +93,11 @@ pub async fn start_server(
         // TODO: replace with conditional code for testing
         let cors = Cors::permissive();
 
+        let json_cfg = web::JsonConfig::default()
+            .error_handler(|err, _| model::error::WebError::from(err).into());
+
         App::new()
+            .app_data(json_cfg)
             .wrap(cors)
             .service(
                 web::scope("/service")

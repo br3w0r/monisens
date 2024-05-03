@@ -1,14 +1,16 @@
 use core::fmt;
 
-use actix_web::body::BoxBody;
+use actix_web::{body::BoxBody, error::JsonPayloadError, error::ResponseError};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
+use utoipa::ToSchema;
 
 use crate::controller;
 
 use actix_web::http::header::TryIntoHeaderValue as _;
 
-#[derive(Debug)]
+#[derive(Debug, ToSchema)]
 pub struct WebError {
+    #[schema(value_type = String, format = Byte)]
     code: actix_web::http::StatusCode,
     msg: String,
 }
@@ -29,13 +31,13 @@ impl Serialize for WebError {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("WebError", 2)?;
-        state.serialize_field("status", &self.code.as_str())?;
+        state.serialize_field("code", &self.code.as_str())?;
         state.serialize_field("msg", &self.msg)?;
         state.end()
     }
 }
 
-impl actix_web::ResponseError for WebError {
+impl ResponseError for WebError {
     fn status_code(&self) -> actix_web::http::StatusCode {
         self.code
     }
@@ -83,6 +85,15 @@ impl From<controller::error::ControllerError> for WebError {
         };
 
         WebError { code, msg }
+    }
+}
+
+impl From<JsonPayloadError> for WebError {
+    fn from(value: JsonPayloadError) -> Self {
+        Self {
+            code: value.status_code(),
+            msg: format!("{}", value),
+        }
     }
 }
 

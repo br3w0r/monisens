@@ -1,4 +1,5 @@
 pub mod contract;
+pub mod error;
 
 use super::config;
 use crate::controller::Controller;
