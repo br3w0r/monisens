@@ -20,7 +20,7 @@ lazy_static = "1"
 thiserror = "1"
 libc = "0.2.132"
 libloading = "0.7.3"
-actix-web = "4.3.1"
+actix-web = "4.5.1"
 actix-multipart = { version = "0.6.0", features = ["tempfile"] }
 actix-files = "0.6.2"
 actix-cors = "0.6.4"

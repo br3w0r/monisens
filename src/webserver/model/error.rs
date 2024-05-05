@@ -1,18 +1,27 @@
 use core::fmt;
 
-use actix_web::{body::BoxBody, error::JsonPayloadError, error::ResponseError};
+use actix_web::{
+    body::BoxBody,
+    error::JsonPayloadError,
+    error::ResponseError,
+    http::{header::TryIntoHeaderValue as _, StatusCode},
+};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 use utoipa::ToSchema;
 
 use crate::controller;
 
-use actix_web::http::header::TryIntoHeaderValue as _;
-
 #[derive(Debug, ToSchema)]
 pub struct WebError {
     #[schema(value_type = String, format = Byte)]
-    code: actix_web::http::StatusCode,
+    code: StatusCode,
     msg: String,
+}
+
+impl WebError {
+    pub fn new(code: StatusCode, msg: String) -> Self {
+        WebError { code, msg }
+    }
 }
 
 impl fmt::Display for WebError {
@@ -38,7 +47,7 @@ impl Serialize for WebError {
 }
 
 impl ResponseError for WebError {
-    fn status_code(&self) -> actix_web::http::StatusCode {
+    fn status_code(&self) -> StatusCode {
         self.code
     }
 
@@ -67,19 +76,18 @@ impl ResponseError for WebError {
 impl From<controller::error::ControllerError> for WebError {
     fn from(value: controller::error::ControllerError) -> Self {
         let (code, msg) = match value {
-            controller::error::ControllerError::UnknownDevice(err) => (
-                actix_web::http::StatusCode::NOT_FOUND,
-                format!("device not found: {}", err),
-            ),
+            controller::error::ControllerError::UnknownDevice(err) => {
+                (StatusCode::NOT_FOUND, format!("device not found: {}", err))
+            }
             controller::error::ControllerError::IncorrectPayload(err) => {
-                (actix_web::http::StatusCode::BAD_REQUEST, format!("{}", err))
+                (StatusCode::BAD_REQUEST, format!("{}", err))
             }
             controller::error::ControllerError::CommonError(err) => {
                 let code = ctrl_err_type_to_actix_code(err.error_type);
                 (code, err.msg)
             }
             controller::error::ControllerError::Other(_) => (
-                actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 "internal error".to_string(),
             ),
         };
@@ -100,25 +108,21 @@ impl From<JsonPayloadError> for WebError {
 impl From<Box<dyn std::error::Error>> for WebError {
     fn from(_: Box<dyn std::error::Error>) -> Self {
         WebError {
-            code: actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            code: StatusCode::INTERNAL_SERVER_ERROR,
             msg: "internal error".to_string(),
         }
     }
 }
 
-fn ctrl_err_type_to_actix_code(err: controller::error::ErrorType) -> actix_web::http::StatusCode {
+fn ctrl_err_type_to_actix_code(err: controller::error::ErrorType) -> StatusCode {
     match err {
-        controller::error::ErrorType::NotFound => actix_web::http::StatusCode::NOT_FOUND,
-        controller::error::ErrorType::AlreadyExists => actix_web::http::StatusCode::CONFLICT,
-        controller::error::ErrorType::Internal => {
-            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR
-        }
-        controller::error::ErrorType::IO => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-        controller::error::ErrorType::Timeout => actix_web::http::StatusCode::GATEWAY_TIMEOUT,
-        controller::error::ErrorType::InvalidInput => actix_web::http::StatusCode::BAD_REQUEST,
-        controller::error::ErrorType::FailedPrecondition => {
-            actix_web::http::StatusCode::BAD_REQUEST
-        }
-        controller::error::ErrorType::Unknown => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+        controller::error::ErrorType::NotFound => StatusCode::NOT_FOUND,
+        controller::error::ErrorType::AlreadyExists => StatusCode::CONFLICT,
+        controller::error::ErrorType::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+        controller::error::ErrorType::IO => StatusCode::INTERNAL_SERVER_ERROR,
+        controller::error::ErrorType::Timeout => StatusCode::GATEWAY_TIMEOUT,
+        controller::error::ErrorType::InvalidInput => StatusCode::BAD_REQUEST,
+        controller::error::ErrorType::FailedPrecondition => StatusCode::BAD_REQUEST,
+        controller::error::ErrorType::Unknown => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }

@@ -1,11 +1,13 @@
 pub mod config;
 
 mod controller;
+mod middleware;
 mod model;
 
 use std::error::Error;
 
 use actix_cors::Cors;
+use actix_web::middleware::ErrorHandlers;
 use actix_web::{web, App, HttpServer};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -99,6 +101,7 @@ pub async fn start_server(
         App::new()
             .app_data(json_cfg)
             .wrap(cors)
+            .wrap(ErrorHandlers::new().default_handler(middleware::error_parser::error_parser))
             .service(
                 web::scope("/service")
                     .app_data(web::Data::new(ServiceState { ctrl: ctrl.clone() }))
