@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-// ---------------------------- Инициализация ----------------------------
+// ---------------------------- Initialization ----------------------------
 
 typedef enum
 {
@@ -36,7 +36,7 @@ typedef void (*device_info_callback)(void *, DeviceConnectInfo *);
 typedef struct
 {
     char *name;
-    char *value; // Значение параметра подключения, закодированное в строку
+    char *value; // Connection parameter value encoded in a string
 } ConnParam;
 
 typedef struct
@@ -45,19 +45,19 @@ typedef struct
     int32_t connection_params_len;
 } DeviceConnectConf;
 
-// --------------------------- Конфигурация устройства ---------------------------
+// --------------------------- Device configuration ---------------------------
 
 typedef enum
 {
-    // Список поддерживаемых типов. Пока не полный
-    DeviceConfInfoEntryTypeSection, // DeviceConfInfo
-    DeviceConfInfoEntryTypeString,
-    DeviceConfInfoEntryTypeInt,
-    DeviceConfInfoEntryTypeIntRange,
-    DeviceConfInfoEntryTypeFloat,
-    DeviceConfInfoEntryTypeFloatRange,
-    DeviceConfInfoEntryTypeJSON,
-    DeviceConfInfoEntryTypeChoiceList,
+    // List of supported types
+    DeviceConfInfoEntryTypeSection,    // DeviceConfInfo
+    DeviceConfInfoEntryTypeString,     // DeviceConfInfoEntryString
+    DeviceConfInfoEntryTypeInt,        // DeviceConfInfoEntryInt
+    DeviceConfInfoEntryTypeIntRange,   // DeviceConfInfoEntryIntRange
+    DeviceConfInfoEntryTypeFloat,      // DeviceConfInfoEntryFloat
+    DeviceConfInfoEntryTypeFloatRange, // DeviceConfInfoEntryFloatRange
+    DeviceConfInfoEntryTypeJSON,       // DeviceConfInfoEntryJSON
+    DeviceConfInfoEntryTypeChoiceList, // DeviceConfInfoEntryChoiceList
 } DeviceConfInfoEntryType;
 
 typedef struct
@@ -127,10 +127,10 @@ typedef struct
 
 typedef struct
 {
-    int32_t id; // Уникальный id параметра (для типа `DeviceConfInfoEntryTypeSection` не указывается)
+    int32_t id; // Unique parameter id (not specified for `DeviceConfInfoEntryTypeSection` type)
     char *name;
-    DeviceConfInfoEntryType typ; // Тип параметра
-    void *data;                  // Данные для параметра (заранее прописанные структуры)
+    DeviceConfInfoEntryType typ; // Type of the parameter
+    void *data;                  // Data for the parameter (pre-defined structures)
 } DeviceConfInfoEntry;
 
 typedef struct
@@ -141,19 +141,20 @@ typedef struct
 
 typedef void (*device_conf_info_callback)(void *obj, DeviceConfInfo *info);
 
-// Типы данных по типам параметров:
-// DeviceConfInfoEntryTypeString - char *
-// DeviceConfInfoEntryTypeInt - int32_t *
-// DeviceConfInfoEntryTypeIntRange - int32_t * => массив длины 2: {min, max}
-// DeviceConfInfoEntryTypeFloat - float32_t *
-// DeviceConfInfoEntryTypeFloatRange - float32_t * => массив длины 2: {min, max}
-// DeviceConfInfoEntryTypeJSON - char *
-// DeviceConfInfoEntryTypeChoiceList - int32_t * => индекс выбранного пункта в массиве
-// Все параметры могут быть NULL.
+// Data types by parameter types:
+//   - DeviceConfInfoEntryTypeString - char *
+//   - DeviceConfInfoEntryTypeInt - int32_t *
+//   - DeviceConfInfoEntryTypeIntRange - int32_t * => array of length 2: {min, max}
+//   - DeviceConfInfoEntryTypeFloat - float32_t *
+//   - DeviceConfInfoEntryTypeFloatRange - float32_t * => array of length 2: {min, max}
+//   - DeviceConfInfoEntryTypeJSON - char *
+//   - DeviceConfInfoEntryTypeChoiceList - int32_t * => index of the selected item in the array
+//
+// All parameters can be NULL.
 typedef struct
 {
-    int32_t id; // Уникальный id параметра
-    void *data; // Значение параметра определённого типа
+    int32_t id; // Unique parameter id
+    void *data; // Value of a parameter of a certain type
 } DeviceConfEntry;
 
 typedef struct
@@ -176,37 +177,38 @@ typedef enum
 
 typedef struct
 {
-    // Название данных. Обязательно должно быть написано в snake_case
-    // и быть уникальным для каждого данного в рамках одного сенсора.
+    // Data name. Must be written in snake_case
+    // and be unique for each data within one sensor.
     char *name;
     SensorDataType typ; // Тип данных
 } SensorDataTypeInfo;
 
 typedef struct
 {
-    // Название сенсора. Обязательно должно быть написано в snake_case
-    // и быть уникальным для каждого сенсора в рамках одного устройства.
+    // Sensor name. Must be written in snake_case
+    // and be unique for each sensor within one device.
     char *name;
     int32_t data_type_infos_len;
-    SensorDataTypeInfo *data_type_infos; // Массив типов данных сенсора
+    SensorDataTypeInfo *data_type_infos; // Sensor data type array
 } SensorTypeInfo;
 
 typedef struct
 {
     int32_t sensor_type_infos_len;
-    SensorTypeInfo *sensor_type_infos; // Массив информаций о типах данных сенсоров
+    SensorTypeInfo *sensor_type_infos; // Array of infos about sensor data types
 } SensorTypeInfos;
 
 typedef void (*sensor_type_infos_callback)(void *obj, SensorTypeInfos *infos);
 
-// ------------------------ ц ------------------------
+// ------------------------ Device communication ------------------------
 
+// Entity of single data from the sensor
 typedef struct
 {
     char *name;
 
     SensorDataType typ;
-    // По типу:
+    // By type:
     // SensorDataTypeInt16:     int16_t
     // SensorDataTypeInt32:     int32_t
     // SensorDataTypeInt64:     int64_t
@@ -218,6 +220,7 @@ typedef struct
     void *data;
 } SensorMsgData;
 
+// All data from a single sensor
 typedef struct
 {
     char *name;
@@ -232,6 +235,7 @@ typedef enum
     MsgCodeError,
 } MsgCode;
 
+// Logging message from module
 typedef struct
 {
     MsgCode code;
@@ -244,18 +248,21 @@ typedef enum
     MessageTypeCommon, // data:CommonMsg
 } MessageType;
 
+// Message from the module
 typedef struct
 {
     MessageType typ;
     void *data;
 } Message;
 
+// Function for handling messages from the module
 typedef void (*handle_msg_func)(void *handler, Message msg_data);
 
-// ---------------------------- Процесс работы модуля ----------------------------
+// ---------------------------- Module's working process ----------------------------
 
 typedef uint8_t (*mod_version_fn)();
 
+// All functions defined in monisens_api.h
 typedef struct
 {
     void (*init)(void **handler, char *data_dir);
