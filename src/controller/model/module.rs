@@ -1,66 +1,26 @@
 #[derive(Debug)]
-pub enum ConnParamType {
-    Bool,
-    Int,
-    Float,
-    String,
-    ChoiceList,
-}
-
-#[derive(Debug)]
-pub enum ConnParamEntryInfo {
-    ChoiceList(ConnParamChoiceListInfo),
-}
-
-#[derive(Debug)]
-pub struct ConnParamChoiceListInfo {
-    pub choices: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct ConnParamConf {
-    pub name: String,
-    pub typ: ConnParamType,
-    pub info: Option<ConnParamEntryInfo>,
-}
-
-pub enum ConnParamValType {
-    Bool(bool),
-    Int(i32),
-    Float(f32),
-    String(String),
-}
-
-pub struct ConnParam {
-    pub name: String,
-    pub value: ConnParamValType,
-}
-
-pub type DeviceConnectConf = Vec<ConnParam>;
-
-#[derive(Debug)]
-pub struct DeviceConfInfoEntry {
+pub struct ConfInfoEntry {
     pub id: i32,
     pub name: String,
-    pub data: DeviceConfInfoEntryType,
+    pub data: ConfInfoEntryType,
 }
 
-pub type DeviceConfInfo = Vec<DeviceConfInfoEntry>;
+pub type ConfInfo = Vec<ConfInfoEntry>;
 
 #[derive(Debug)]
-pub enum DeviceConfInfoEntryType {
-    Section(DeviceConfInfo),
-    String(DeviceConfInfoEntryString),
-    Int(DeviceConfInfoEntryInt),
-    IntRange(DeviceConfInfoEntryIntRange),
-    Float(DeviceConfInfoEntryFloat),
-    FloatRange(DeviceConfInfoEntryFloatRange),
-    JSON(DeviceConfInfoEntryJSON),
-    ChoiceList(DeviceConfInfoEntryChoiceList),
+pub enum ConfInfoEntryType {
+    Section(ConfInfo),
+    String(ConfInfoEntryString),
+    Int(ConfInfoEntryInt),
+    IntRange(ConfInfoEntryIntRange),
+    Float(ConfInfoEntryFloat),
+    FloatRange(ConfInfoEntryFloatRange),
+    JSON(ConfInfoEntryJSON),
+    ChoiceList(ConfInfoEntryChoiceList),
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryString {
+pub struct ConfInfoEntryString {
     pub required: bool,
     pub default: Option<String>,
 
@@ -70,7 +30,7 @@ pub struct DeviceConfInfoEntryString {
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryInt {
+pub struct ConfInfoEntryInt {
     pub required: bool,
     pub default: Option<i32>,
 
@@ -80,7 +40,7 @@ pub struct DeviceConfInfoEntryInt {
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryIntRange {
+pub struct ConfInfoEntryIntRange {
     pub required: bool,
     pub def_from: Option<i32>,
     pub def_to: Option<i32>,
@@ -90,7 +50,7 @@ pub struct DeviceConfInfoEntryIntRange {
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryFloat {
+pub struct ConfInfoEntryFloat {
     pub required: bool,
     pub default: Option<f32>,
 
@@ -100,7 +60,7 @@ pub struct DeviceConfInfoEntryFloat {
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryFloatRange {
+pub struct ConfInfoEntryFloatRange {
     pub required: bool,
     pub def_from: Option<f32>,
     pub def_to: Option<f32>,
@@ -110,20 +70,20 @@ pub struct DeviceConfInfoEntryFloatRange {
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryJSON {
+pub struct ConfInfoEntryJSON {
     pub required: bool,
     pub default: Option<String>,
 }
 
 #[derive(Debug)]
-pub struct DeviceConfInfoEntryChoiceList {
+pub struct ConfInfoEntryChoiceList {
     pub required: bool,
     pub default: Option<i32>,
 
     pub choices: Vec<String>,
 }
 
-pub enum DeviceConfType {
+pub enum ConfType {
     String(String),
     Int(i32),
     IntRange([i32; 2]),
@@ -133,9 +93,9 @@ pub enum DeviceConfType {
     ChoiceList(i32),
 }
 
-pub struct DeviceConfEntry {
+pub struct ConfEntry {
     pub id: i32,
-    pub data: Option<DeviceConfType>,
+    pub data: Option<ConfType>,
 }
 
 #[derive(Debug)]

@@ -34,13 +34,13 @@ impl Drop for Module {
 }
 
 impl IModule for Module {
-    fn obtain_device_conn_info(&mut self) -> Result<Vec<controller::ConnParamConf>, CommonError> {
-        let mut conf_rec: DeficeInfoRec = Ok(Vec::new());
+    fn obtain_device_conn_info(&mut self) -> Result<controller::ConfInfo, CommonError> {
+        let mut conf_rec: ConfInfoRec = Ok(Vec::new());
         unsafe {
-            self.funcs.obtain_device_info.unwrap()(
+            self.funcs.obtain_device_conn_info.unwrap()(
                 self.handle.handler(),
-                &mut conf_rec as *mut DeficeInfoRec as *mut c_void,
-                Some(device_info_callback),
+                &mut conf_rec as *mut ConfInfoRec as *mut c_void,
+                Some(device_conn_info_callback),
             )
         };
 
@@ -50,25 +50,26 @@ impl IModule for Module {
         Ok(res)
     }
 
-    fn connect_device(&mut self, conf: controller::DeviceConnectConf) -> Result<(), CommonError> {
+    fn connect_device(&mut self, confs: Vec<controller::ConfEntry>) -> Result<(), CommonError> {
         let mut c_string_handle = conv::CStringHandle::new();
-        let conn_params = conv::conn_param_to_bg(&conf, &mut c_string_handle);
-        let mut conf = conv::bg_conn_params_to_device_connect_conf(&conn_params);
+        let confs_bg = conv::device_conf_entry_vec_to_bg(&confs, &mut c_string_handle);
+        let mut device_conf_raw = conv::bg_device_conf_entry_vec_to_device_conf(&confs_bg);
 
-        let err =
-            unsafe { self.funcs.connect_device.unwrap()(self.handle.handler(), &mut conf as _) };
+        let err = unsafe {
+            self.funcs.connect_device.unwrap()(self.handle.handler(), &mut device_conf_raw as _)
+        };
 
         convert_com_error(err).map_err(|err| err.to_ctrl_error("failed to connect to device"))?;
 
         Ok(())
     }
 
-    fn obtain_device_conf_info(&mut self) -> Result<controller::DeviceConfInfo, CommonError> {
-        let mut conf_rec: DeviceConfInfoRec = Ok(controller::DeviceConfInfo::new());
+    fn obtain_device_conf_info(&mut self) -> Result<controller::ConfInfo, CommonError> {
+        let mut conf_rec: ConfInfoRec = Ok(controller::ConfInfo::new());
         unsafe {
             self.funcs.obtain_device_conf_info.unwrap()(
                 self.handle.handler(),
-                &mut conf_rec as *mut DeviceConfInfoRec as *mut c_void,
+                &mut conf_rec as *mut ConfInfoRec as *mut c_void,
                 Some(device_conf_info_callback),
             )
         };
@@ -78,10 +79,7 @@ impl IModule for Module {
         Ok(res)
     }
 
-    fn configure_device(
-        &mut self,
-        confs: Vec<controller::DeviceConfEntry>,
-    ) -> Result<(), CommonError> {
+    fn configure_device(&mut self, confs: Vec<controller::ConfEntry>) -> Result<(), CommonError> {
         let mut c_string_handle = conv::CStringHandle::new();
         let confs_bg = conv::device_conf_entry_vec_to_bg(&confs, &mut c_string_handle);
         let mut device_conf_raw = conv::bg_device_conf_entry_vec_to_device_conf(&confs_bg);

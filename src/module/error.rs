@@ -13,6 +13,7 @@ pub enum ModuleError {
     ),
     #[error("invalid pointer to variable or field '{0}'")]
     InvalidPointer(&'static str),
+    // TODO: Find out why it's not used
     #[error("failed to convert pointer to char into string")]
     StrError(Box<dyn std::error::Error>),
     #[error("data path is invalid")]

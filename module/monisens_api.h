@@ -15,7 +15,7 @@ void init(void **handler, char *data_dir);
 // Function for getting connection parameters. It calls `callback` from the argument
 // and gives it access to the parameters. The `callback` will copy the values
 // from the pointer to internal storage provided by `obj` argument.
-void obtain_device_info(void *handler, void *obj, device_info_callback callback);
+void obtain_device_conn_info(void *handler, void *obj, device_conn_info_callback callback);
 
 // Device connection function.
 // Returns error codes:
@@ -25,7 +25,7 @@ void obtain_device_info(void *handler, void *obj, device_info_callback callback)
 // Inside this function, the module, due to communication with the device, can
 // determine which parameters to return in the `obtain_sensor_confs` function.
 // Also here you should check whether the device configuration is correct.
-uint8_t connect_device(void *handler, DeviceConnectConf *connect_conf);
+uint8_t connect_device(void *handler, Conf *connect_conf);
 
 // ------------------------------------------------------------------------------------------
 // -------------------------------- Device configuration ------------------------------------
@@ -40,7 +40,7 @@ void obtain_device_conf_info(void *handler, void *obj, device_conf_info_callback
 //   - 0 - success,
 //   - 1 - connection failed,
 //   - 2 - invalid parameters.
-uint8_t configure_device(void *handler, DeviceConf *conf);
+uint8_t configure_device(void *handler, Conf *device_conf);
 
 // ------------------------------------------------------------------------------------------
 // ----------------------- Functions to obtain device information  --------------------------
@@ -55,7 +55,7 @@ uint8_t configure_device(void *handler, DeviceConf *conf);
 uint8_t obtain_sensor_type_infos(void *handler, void *obj, sensor_type_infos_callback callback);
 
 // -------------------------------------------------------------------------------------------
-// ----------------------- Функции для коммуникации с устройством -------------------------
+// ----------------------- Functions for communications with device --------------------------
 // -------------------------------------------------------------------------------------------
 
 // Start the module.

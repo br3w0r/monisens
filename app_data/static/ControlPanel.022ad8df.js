@@ -1,1 +1,0 @@
-import{d as o,u as a,c as t,a0 as r,a as s,o as c}from"./index.8f9928dc.js";const i=o({__name:"ControlPanel",setup(p){const n=a();return(l,u)=>{var e;return c(),t("div",null,' Control panel for device "'+r((e=s(n).current_device)==null?void 0:e.name)+'" ',1)}}});export{i as default};

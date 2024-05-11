@@ -10,7 +10,7 @@ pub use service::*;
 
 pub struct DeviceConnData {
     pub id: DeviceID,
-    pub conn_params: Vec<ConnParamConf>,
+    pub conn_params: ConfInfo,
 }
 
 pub type GetSensorDataResult = Vec<HashMap<String, SensorData>>;

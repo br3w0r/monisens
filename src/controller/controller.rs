@@ -85,18 +85,16 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
         res
     }
 
-    pub fn connect_device(&self, id: i32, conf: DeviceConnectConf) -> Result<(), ControllerError> {
+    pub fn connect_device(&self, id: i32, conf: Vec<ConfEntry>) -> Result<(), ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
-        let conn_conf = conf.into();
-
-        device.module.connect_device(conn_conf)?;
+        device.module.connect_device(conf)?;
 
         Ok(())
     }
 
-    pub fn obtain_device_conf_info(&self, id: i32) -> Result<DeviceConfInfo, ControllerError> {
+    pub fn obtain_device_conf_info(&self, id: i32) -> Result<ConfInfo, ControllerError> {
         let device_lock = self.get_device(&id)?;
         let mut device = device_lock.lock().unwrap();
 
@@ -108,7 +106,7 @@ impl<S: IService + 'static, M: IModule + 'static, MF: IModuleFactory<M>> Control
     pub async fn configure_device(
         &self,
         id: i32,
-        confs: Vec<DeviceConfEntry>,
+        confs: Vec<ConfEntry>,
     ) -> Result<(), ControllerError> {
         {
             let device_lock = self.get_device(&id)?;

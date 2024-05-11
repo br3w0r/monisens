@@ -39,51 +39,13 @@ impl Drop for CStringHandle {
     }
 }
 
-pub fn conn_param_to_bg(
-    val: &Vec<controller::ConnParam>,
-    cstring_handle: &mut CStringHandle,
-) -> Vec<bg::ConnParam> {
-    let mut c_params = Vec::with_capacity(val.len());
-
-    for param in val.iter() {
-        let name = cstring_handle.save_and_return_str(&param.name);
-
-        let val = conn_param_val_type_to_cstring(&param.value);
-        let value = cstring_handle.save_and_return_cstring(val);
-
-        c_params.push(bg::ConnParam {
-            name: name as _,
-            value: value as _,
-        });
-    }
-
-    c_params
-}
-
-pub fn bg_conn_param_type_to_ctrl(val: &bg::ConnParamType) -> controller::ConnParamType {
-    match val {
-        bg::ConnParamType::ConnParamBool => controller::ConnParamType::Bool,
-        bg::ConnParamType::ConnParamInt => controller::ConnParamType::Int,
-        bg::ConnParamType::ConnParamFloat => controller::ConnParamType::Float,
-        bg::ConnParamType::ConnParamString => controller::ConnParamType::String,
-        bg::ConnParamType::ConnParamChoiceList => controller::ConnParamType::ChoiceList,
-    }
-}
-
-pub fn bg_conn_params_to_device_connect_conf(params: &Vec<bg::ConnParam>) -> bg::DeviceConnectConf {
-    bg::DeviceConnectConf {
-        connection_params: params.as_ptr() as _,
-        connection_params_len: params.len() as i32,
-    }
-}
-
 pub fn device_conf_entry_vec_to_bg(
-    confs: &Vec<controller::DeviceConfEntry>,
+    confs: &Vec<controller::ConfEntry>,
     cstring_handle: &mut CStringHandle,
-) -> Vec<bg::DeviceConfEntry> {
+) -> Vec<bg::ConfEntry> {
     let mut confs_raw = Vec::with_capacity(confs.len());
     for conf in confs.iter() {
-        confs_raw.push(bg::DeviceConfEntry {
+        confs_raw.push(bg::ConfEntry {
             id: conf.id,
             data: device_conf_option_to_ptr(&conf.data, cstring_handle),
         })
@@ -92,8 +54,8 @@ pub fn device_conf_entry_vec_to_bg(
     confs_raw
 }
 
-pub fn bg_device_conf_entry_vec_to_device_conf(confs: &Vec<bg::DeviceConfEntry>) -> bg::DeviceConf {
-    bg::DeviceConf {
+pub fn bg_device_conf_entry_vec_to_device_conf(confs: &Vec<bg::ConfEntry>) -> bg::Conf {
+    bg::Conf {
         confs: confs.as_ptr() as _,
         confs_len: confs.len() as i32,
     }
@@ -110,17 +72,6 @@ pub fn bg_sensor_data_type_to_ctrl(val: &bg::SensorDataType) -> controller::Sens
         bg::SensorDataType::SensorDataTypeString => controller::SensorDataType::String,
         bg::SensorDataType::SensorDataTypeJSON => controller::SensorDataType::JSON,
     }
-}
-
-pub fn conn_param_val_type_to_cstring(val: &controller::ConnParamValType) -> CString {
-    let str = match val {
-        controller::ConnParamValType::Bool(val) => val.to_string(),
-        controller::ConnParamValType::Int(val) => val.to_string(),
-        controller::ConnParamValType::Float(val) => val.to_string(),
-        controller::ConnParamValType::String(val) => val.clone(),
-    };
-
-    CString::new(str).unwrap()
 }
 
 pub fn bg_message_to_ctrl(val: &bg::Message) -> controller::Message {
@@ -219,7 +170,7 @@ pub fn option_str_from_c_char(nullable_raw: *mut c_char) -> Option<String> {
 // --------------------------------- private ------------------------------------
 
 fn device_conf_option_to_ptr(
-    data: &Option<controller::DeviceConfType>,
+    data: &Option<controller::ConfType>,
     cstring_handle: &mut CStringHandle,
 ) -> *mut c_void {
     match data {
@@ -229,16 +180,16 @@ fn device_conf_option_to_ptr(
 }
 
 fn device_conf_type_to_ptr(
-    val: &controller::DeviceConfType,
+    val: &controller::ConfType,
     cstring_handle: &mut CStringHandle,
 ) -> *mut c_void {
     match val {
-        controller::DeviceConfType::String(s) => cstring_handle.save_and_return_str(s) as _,
-        controller::DeviceConfType::Int(i) => i as *const i32 as _,
-        controller::DeviceConfType::IntRange(ir) => ir.as_ptr() as _,
-        controller::DeviceConfType::Float(f) => f as *const f32 as _,
-        controller::DeviceConfType::FloatRange(fr) => fr.as_ptr() as _,
-        controller::DeviceConfType::JSON(j) => cstring_handle.save_and_return_str(j) as _,
-        controller::DeviceConfType::ChoiceList(cl) => cl as *const i32 as _,
+        controller::ConfType::String(s) => cstring_handle.save_and_return_str(s) as _,
+        controller::ConfType::Int(i) => i as *const i32 as _,
+        controller::ConfType::IntRange(ir) => ir.as_ptr() as _,
+        controller::ConfType::Float(f) => f as *const f32 as _,
+        controller::ConfType::FloatRange(fr) => fr.as_ptr() as _,
+        controller::ConfType::JSON(j) => cstring_handle.save_and_return_str(j) as _,
+        controller::ConfType::ChoiceList(cl) => cl as *const i32 as _,
     }
 }

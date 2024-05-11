@@ -10,74 +10,6 @@ use crate::controller::interface::module::MsgHandler;
 
 pub const VERSION: u8 = 1;
 
-pub type DeficeInfoRec = Result<Vec<controller::ConnParamConf>, ModuleError>;
-
-fn device_connect_info(res: *mut DeficeInfoRec, info: *const bg::DeviceConnectInfo) {
-    if info.is_null() {
-        unsafe {
-            *res = Err(ModuleError::InvalidPointer("device_connect_info"));
-        }
-        return;
-    }
-
-    if unsafe { (*info).connection_params }.is_null() {
-        unsafe {
-            *res = Err(ModuleError::InvalidPointer(
-                "device_connect_info.connection_params",
-            ));
-        }
-        return;
-    }
-
-    let len = unsafe { (*info).connection_params_len as usize };
-    let mut device_connect_info: Vec<controller::ConnParamConf> = Vec::with_capacity(len);
-
-    let params = unsafe { std::slice::from_raw_parts((*info).connection_params, len) };
-
-    for param in params {
-        if param.name.is_null() {
-            unsafe {
-                *res = Err(ModuleError::InvalidPointer(
-                    "device_connect_info.connection_params[i].name",
-                ));
-            }
-            return;
-        }
-
-        let name = conv::str_from_c_char(param.name);
-
-        let info = match param.typ {
-            bg::ConnParamType::ConnParamChoiceList => {
-                let raw_info = param.info as *const bg::ConnParamChoiceListInfo;
-
-                let choices = unsafe {
-                    std::slice::from_raw_parts(
-                        (*raw_info).choices,
-                        (*raw_info).chioces_len as usize,
-                    )
-                };
-
-                let res = controller::ConnParamChoiceListInfo {
-                    choices: choices.iter().map(|v| conv::str_from_c_char(*v)).collect(),
-                };
-
-                Some(controller::ConnParamEntryInfo::ChoiceList(res))
-            }
-            _ => None,
-        };
-
-        device_connect_info.push(controller::ConnParamConf {
-            name: name,
-            typ: conv::bg_conn_param_type_to_ctrl(&param.typ),
-            info,
-        });
-    }
-
-    unsafe {
-        *res = Ok(device_connect_info);
-    }
-}
-
 pub struct Handle(*const c_void);
 
 impl Handle {
@@ -100,26 +32,22 @@ impl Handle {
 
 unsafe impl Send for Handle {}
 
-pub extern "C" fn device_info_callback(obj: *mut c_void, info: *mut bg::DeviceConnectInfo) {
-    device_connect_info(obj as _, info);
+pub extern "C" fn device_conn_info_callback(obj: *mut c_void, info: *mut bg::ConfInfo) {
+    conf_info(obj as _, info);
 }
 
-fn build_device_conf_info(
-    info: *mut bg::DeviceConfInfo,
-) -> Result<controller::DeviceConfInfo, ModuleError> {
-    if unsafe { (*info).device_confs }.is_null() {
-        return Err(ModuleError::InvalidPointer("device_conf_info.device_confs"));
+fn build_conf_info(info: *mut bg::ConfInfo) -> Result<controller::ConfInfo, ModuleError> {
+    if unsafe { (*info).confs }.is_null() {
+        return Err(ModuleError::InvalidPointer("conf_info.confs"));
     }
 
-    let confs =
-        unsafe { std::slice::from_raw_parts((*info).device_confs, (*info).device_confs_len as _) };
-    let mut res =
-        controller::DeviceConfInfo::with_capacity(unsafe { (*info).device_confs_len } as _);
+    let confs = unsafe { std::slice::from_raw_parts((*info).confs, (*info).confs_len as _) };
+    let mut res = controller::ConfInfo::with_capacity(unsafe { (*info).confs_len } as _);
 
     for conf in confs {
-        let data = build_device_conf_info_entry_data(conf)?;
+        let data = build_conf_info_entry_data(conf)?;
 
-        res.push(controller::DeviceConfInfoEntry {
+        res.push(controller::ConfInfoEntry {
             id: conf.id,
             name: conv::str_from_c_char(conf.name),
             data: data,
@@ -129,20 +57,20 @@ fn build_device_conf_info(
     Ok(res)
 }
 
-fn build_device_conf_info_entry_data(
-    conf: &bg::DeviceConfInfoEntry,
-) -> Result<controller::DeviceConfInfoEntryType, ModuleError> {
+fn build_conf_info_entry_data(
+    conf: &bg::ConfInfoEntry,
+) -> Result<controller::ConfInfoEntryType, ModuleError> {
     match conf.typ {
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeSection => {
-            let section = build_device_conf_info(conf.data as *mut bg::DeviceConfInfo)?;
+        bg::ConfInfoEntryType::ConfInfoEntryTypeSection => {
+            let section = build_conf_info(conf.data as *mut bg::ConfInfo)?;
 
-            Ok(controller::DeviceConfInfoEntryType::Section(section))
+            Ok(controller::ConfInfoEntryType::Section(section))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeString => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryString) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeString => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryString) };
 
-            Ok(controller::DeviceConfInfoEntryType::String(
-                controller::DeviceConfInfoEntryString {
+            Ok(controller::ConfInfoEntryType::String(
+                controller::ConfInfoEntryString {
                     required: data.required,
                     default: conv::option_str_from_c_char(data.def),
                     min_len: nullable_into_option(data.min_len),
@@ -151,11 +79,11 @@ fn build_device_conf_info_entry_data(
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeInt => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryInt) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeInt => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryInt) };
 
-            Ok(controller::DeviceConfInfoEntryType::Int(
-                controller::DeviceConfInfoEntryInt {
+            Ok(controller::ConfInfoEntryType::Int(
+                controller::ConfInfoEntryInt {
                     required: data.required,
                     default: nullable_into_option(data.def),
                     lt: nullable_into_option(data.lt),
@@ -164,11 +92,11 @@ fn build_device_conf_info_entry_data(
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeIntRange => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryIntRange) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeIntRange => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryIntRange) };
 
-            Ok(controller::DeviceConfInfoEntryType::IntRange(
-                controller::DeviceConfInfoEntryIntRange {
+            Ok(controller::ConfInfoEntryType::IntRange(
+                controller::ConfInfoEntryIntRange {
                     required: data.required,
                     def_from: nullable_into_option(data.def_from),
                     def_to: nullable_into_option(data.def_to),
@@ -177,11 +105,11 @@ fn build_device_conf_info_entry_data(
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeFloat => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryFloat) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeFloat => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryFloat) };
 
-            Ok(controller::DeviceConfInfoEntryType::Float(
-                controller::DeviceConfInfoEntryFloat {
+            Ok(controller::ConfInfoEntryType::Float(
+                controller::ConfInfoEntryFloat {
                     required: data.required,
                     default: nullable_into_option(data.def),
                     lt: nullable_into_option(data.lt),
@@ -190,11 +118,11 @@ fn build_device_conf_info_entry_data(
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeFloatRange => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryFloatRange) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeFloatRange => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryFloatRange) };
 
-            Ok(controller::DeviceConfInfoEntryType::FloatRange(
-                controller::DeviceConfInfoEntryFloatRange {
+            Ok(controller::ConfInfoEntryType::FloatRange(
+                controller::ConfInfoEntryFloatRange {
                     required: data.required,
                     def_from: nullable_into_option(data.def_from),
                     def_to: nullable_into_option(data.def_to),
@@ -203,20 +131,20 @@ fn build_device_conf_info_entry_data(
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeJSON => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryJSON) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeJSON => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryJSON) };
 
-            Ok(controller::DeviceConfInfoEntryType::JSON(
-                controller::DeviceConfInfoEntryJSON {
+            Ok(controller::ConfInfoEntryType::JSON(
+                controller::ConfInfoEntryJSON {
                     required: data.required,
                     default: conv::option_str_from_c_char(data.def),
                 },
             ))
         }
-        bg::DeviceConfInfoEntryType::DeviceConfInfoEntryTypeChoiceList => {
-            let data = unsafe { *(conf.data as *mut bg::DeviceConfInfoEntryChoiceList) };
+        bg::ConfInfoEntryType::ConfInfoEntryTypeChoiceList => {
+            let data = unsafe { *(conf.data as *mut bg::ConfInfoEntryChoiceList) };
 
-            let mut entry = controller::DeviceConfInfoEntryChoiceList {
+            let mut entry = controller::ConfInfoEntryChoiceList {
                 required: data.required,
                 default: nullable_into_option(data.def),
                 choices: Vec::with_capacity(data.chioces_len as _),
@@ -227,32 +155,32 @@ fn build_device_conf_info_entry_data(
                 entry.choices.push(conv::str_from_c_char(*choice));
             }
 
-            Ok(controller::DeviceConfInfoEntryType::ChoiceList(entry))
+            Ok(controller::ConfInfoEntryType::ChoiceList(entry))
         }
     }
 }
 
-pub type DeviceConfInfoRec = Result<controller::DeviceConfInfo, ModuleError>;
+pub type ConfInfoRec = Result<controller::ConfInfo, ModuleError>;
 
-fn device_conf_info(res: *mut DeviceConfInfoRec, info: *mut bg::DeviceConfInfo) {
+fn conf_info(res: *mut ConfInfoRec, info: *mut bg::ConfInfo) {
     if info.is_null() {
         unsafe {
-            *res = Err(ModuleError::InvalidPointer("device_conf"));
+            *res = Err(ModuleError::InvalidPointer("conf"));
         }
         return;
     }
 
     unsafe {
-        *res = build_device_conf_info(info);
+        *res = build_conf_info(info);
     }
 }
 
-pub extern "C" fn device_conf_info_callback(obj: *mut c_void, info: *mut bg::DeviceConfInfo) {
-    device_conf_info(obj as _, info);
+pub extern "C" fn device_conf_info_callback(obj: *mut c_void, info: *mut bg::ConfInfo) {
+    conf_info(obj as _, info);
 }
 
-pub fn build_device_conf(confs: &Vec<bg::DeviceConfEntry>) -> bg::DeviceConf {
-    bg::DeviceConf {
+pub fn build_conf(confs: &Vec<bg::ConfEntry>) -> bg::Conf {
+    bg::Conf {
         confs: confs.as_ptr() as _,
         confs_len: confs.len() as _,
     }
@@ -300,7 +228,7 @@ pub type SensorTypeInfosRec = Result<Vec<controller::Sensor>, ModuleError>;
 fn sensor_type_infos(res: *mut SensorTypeInfosRec, infos: *mut bg::SensorTypeInfos) {
     if infos.is_null() {
         unsafe {
-            *res = Err(ModuleError::InvalidPointer("device_conf"));
+            *res = Err(ModuleError::InvalidPointer("sensor_type_infos"));
         }
         return;
     }
