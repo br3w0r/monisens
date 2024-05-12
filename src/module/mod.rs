@@ -166,6 +166,13 @@ impl IModuleFactory<Module> for Module {
             })?;
             let funcs = funcs_fn.unwrap()();
 
+            validate_funcs_present(&funcs).map_err(|func_name| {
+                CommonError::new(
+                    ErrorType::IO,
+                    format!("function '{}' is not present in the module", func_name),
+                )
+            })?;
+
             let mut handler = Handle::new();
 
             let data_dir_str = data_dir
@@ -201,4 +208,36 @@ impl IModuleFactory<Module> for Module {
             })
         }
     }
+}
+
+fn validate_funcs_present(funcs: &bg::Functions) -> Result<(), &str> {
+    if funcs.init.is_none() {
+        return Err("init");
+    }
+    if funcs.destroy.is_none() {
+        return Err("destroy");
+    }
+    if funcs.obtain_device_conn_info.is_none() {
+        return Err("obtain_device_conn_info");
+    }
+    if funcs.connect_device.is_none() {
+        return Err("connect_device");
+    }
+    if funcs.obtain_device_conf_info.is_none() {
+        return Err("obtain_device_conf_info");
+    }
+    if funcs.configure_device.is_none() {
+        return Err("configure_device");
+    }
+    if funcs.obtain_sensor_type_infos.is_none() {
+        return Err("obtain_sensor_type_infos");
+    }
+    if funcs.start.is_none() {
+        return Err("start");
+    }
+    if funcs.stop.is_none() {
+        return Err("stop");
+    }
+
+    Ok(())
 }
