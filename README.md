@@ -4,6 +4,24 @@
 
 This project is in a pretty raw state, but it can be used as an inspiration or as a source of features (such as SQL query builder or module for communication with dynamic libraries). Feel free to use it as you like (a mention in your projects will be appreciated ;) ).
 
+## Table of Contents
+
+- [TODO](#todo)
+- [How to use](#how-to-use)
+    - [Prepare infrastructure](#prepare-infrastructure)
+    - [Start the service](#start-the-service)
+    - [Adding a module](#adding-a-module)
+        - [Download a module](#download-a-module)
+        - [Initialize the module](#initialize-the-module)
+    - [Adding a Panel](#adding-a-panel)
+    - [FAQ](#faq)
+- [API](#api)
+    - [Add a new device](#add-a-new-device)
+    - [Add a new panel](#add-a-new-panel)
+- [Example modules](#example-modules)
+- [How to implement your module](#how-to-implement-your-module)
+- [Known issues](#known-issues)
+
 ## TODO
 
 - [ ] Improve architecture: better separation of business logic from implementation details
